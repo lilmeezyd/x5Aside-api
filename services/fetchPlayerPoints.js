@@ -1,4 +1,4 @@
-import PlayerEventPoints from "../models/PlayerEventPoints.js";
+import PlayerEventPoints from "../models/playerPointsModel.js";
 import Player from "../models/Player.js";
 import axios from "axios";
 
