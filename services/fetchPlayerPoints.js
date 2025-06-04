@@ -1,5 +1,5 @@
 import PlayerEventPoints from "../models/playerPointsModel.js";
-import Player from "../models/Player.js";
+import Player from "../models/playerModel.js";
 import axios from "axios";
 
 async function fetchPlayerPoints(eventId, players) {
