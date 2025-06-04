@@ -1,10 +1,10 @@
-import Fixture from "../models/Fixture.js";
-import Team from "../models/Team.js";
-import Player from "../models/Player.js";
+import Fixture from "../models/fixtureModel.js";
+import Team from "../models/teamModel.js";
+import Player from "../models/playerModel.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
-import TeamClassic from "../models/TeamClassic.js";
-import TeamH2H from "../models/TeamH2H.js";
-import PlayerTable from "../models/PlayerTable.js";
+import TeamClassic from "../models/teamClassicModel.js";
+import TeamH2H from "../models/teamH2HModel.js";
+import PlayerTable from "../models/playerTableModel.js";
 
 const scoreFixture = async (fixtureId) => {
   const fixture = await Fixture.findById(fixtureId).lean();

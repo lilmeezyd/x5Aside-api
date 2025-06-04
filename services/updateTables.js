@@ -1,5 +1,5 @@
-import TeamClassic from "../models/TeamClassic.js";
-import TeamH2H from "../models/TeamH2H.js";
+import TeamClassic from "../models/teamClassicModel.js";
+import TeamH2H from "../models/teamH2HModel.js";
 
 const updateTeamTables = async ({
   eventId,

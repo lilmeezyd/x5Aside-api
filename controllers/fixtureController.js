@@ -1,6 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Fixture from "../models/fixtureModel.js";
-import Team from "../models/Team.js";
+import Team from "../models/teamModel.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
 import { scoreFixture } from "../services/scoreFixture.js";
 
