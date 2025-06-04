@@ -113,3 +113,5 @@ const scoreFixture = async (fixtureId) => {
 
   console.log(`Fixture ${fixtureId} scored`);
 };
+
+export default scoreFixture
