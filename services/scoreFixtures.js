@@ -6,7 +6,7 @@ import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
 import PlayerTable from "../models/playerTableModel.js";
 
-const scoreFixture = async (fixtureId) => {
+const scoreFixtures = async (fixtureId) => {
   const fixture = await Fixture.findById(fixtureId).lean();
   if (!fixture || fixture.isPlayed) return;
 
@@ -114,4 +114,4 @@ const scoreFixture = async (fixtureId) => {
   console.log(`Fixture ${fixtureId} scored`);
 };
 
-export default scoreFixture
+export default scoreFixtures

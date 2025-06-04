@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler'
 import Event from '../models/eventModel.js'
 import Fixture from '../models/fixtureModel.js'
 import Team from '../models/teamModel.js'
-import scoreFixture from "../services/scoreFixture.js"
+import scoreFixtures from "../services/scoreFixtures.js"
 
 
 const createEvent =  asyncHandler(async (req, res) => {
@@ -40,10 +40,10 @@ const scoreEventFixtures = async (req, res) => {
       getPoints(awayTeam.players)
     ]);
 
-    await scoreFixture({
+    await scoreFixtures({
       fixture,
       homeTeam,
-      awayTeam,
+    fixture,
       homePlayerPoints,
       awayPlayerPoints
     });
