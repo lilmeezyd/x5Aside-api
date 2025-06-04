@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import fetchPlayerPoints from "./services/fetchPlayerPoints.js"; 
+import fetchPlayerPoints from "../services/fetchPlayerPoints.js"; 
 
 const schedulePlayerPointsFetch = () => {
   // Runs every Monday at 6am UTC
