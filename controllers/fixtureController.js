@@ -57,4 +57,4 @@ const scoreFixtureById = async (req, res) => {
   res.json({ message: "Fixture scored successfully." });
 };
 
-export { createFixture };
+export { createFixture, scoreFixtureById };
