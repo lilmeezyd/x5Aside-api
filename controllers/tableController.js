@@ -30,16 +30,16 @@ const getH2HTable = asyncHandler(async (req, res) => {
 });
 
 const getPlayerTable = asyncHandler(async (req, res) => {
-    const eventId = parseInt(req.query.eventId);
-    const table = await PlayerTable.find().populate("player").lean();
-    const sorted = table.sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      const gdA = a.goalsFor - a.goalsAgainst;
-      const gdB = b.goalsFor - a.goalsAgainst;
-      if (gdB !== gdA) return gdB - gdA;
-      return b.goalsFor - a.goalsFor;
-    });
-    res.json(sorted);
+  const eventId = parseInt(req.query.eventId);
+  const table = await PlayerTable.find().populate("player").lean();
+  const sorted = table.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    const gdA = a.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - a.goalsAgainst;
+    if (gdB !== gdA) return gdB - gdA;
+    return b.goalsFor - a.goalsFor;
   });
+  res.json(sorted);
+});
 
-export { getClassicTable, getH2HTable, getPlayerTable }
+export { getClassicTable, getH2HTable, getPlayerTable };
