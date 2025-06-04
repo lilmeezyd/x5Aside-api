@@ -9,8 +9,10 @@ import cookieParser from "cookie-parser";
 import asyncHandler from "express-async-handler";
 import axios from "axios";
 import cron from "node-cron";
-import scheduleFPLUpdates from "./jobs/fetchPlayerPoints.js";
-scheduleFPLUpdates();
+import  schedulePlayerPointsFetch from "./jobs/schedulePlayerPointsFetch.js";
+
+
+schedulePlayerPointsFetch();
 
 
 

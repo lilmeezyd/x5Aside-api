@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import fetchPlayerPoints from "./services/fetchPlayerPoints.js"; 
 
-const scheduleFPLUpdates = () => {
+const schedulePlayerPointsFetch = () => {
   // Runs every Monday at 6am UTC
   cron.schedule("0 6 * * 1", async () => {
     const eventId = getCurrentEventId(); // implement this based on current date or config
@@ -9,4 +9,4 @@ const scheduleFPLUpdates = () => {
   });
 };
 
-export default scheduleFPLUpdates;
+export default schedulePlayerPointsFetch;
