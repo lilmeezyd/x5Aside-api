@@ -1,14 +1,10 @@
 // ----------- [Setup] -----------
 import express from "express";
-import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import { errorHandler } from "./middleware/errorMiddleware.js";
 import connectDB from "./config/db.js";
 import cookieParser from "cookie-parser";
-import asyncHandler from "express-async-handler";
-import axios from "axios";
-import cron from "node-cron";
 import  schedulePlayerPointsFetch from "./jobs/schedulePlayerPointsFetch.js";
 
 
@@ -17,8 +13,6 @@ schedulePlayerPointsFetch();
 
 
 dotenv.config();
-connectDB()
-
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -28,6 +22,12 @@ app.use(
     origin: "*",
   })
 );
+// Root route for testing
+app.get('/', (req, res) => {
+  res.send('x5Aside API is running...');
+});
+if (process.env.NODE_ENV !== 'test')
+{connectDB()}
 
 import userRoutes from './routes/userRoutes.js';
 import fixtureRoutes from './routes/fixtureRoutes.js';
@@ -43,5 +43,7 @@ app.use("/api/tables", tableRoutes);
 
 
 app.use(errorHandler)
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`x5Aside API running on port ${PORT}`));
+  /*const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`x5Aside API running on port ${PORT}`));*/
+
+export default app
