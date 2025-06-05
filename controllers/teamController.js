@@ -3,7 +3,7 @@ import Team from "../models/teamModel.js";
 import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
 // In server.js or a separate script
-import { fetchAndStoreFPLTeams } from "./services/fetchFPLTeams.js";
+import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 
 const createTeam = asyncHandler(async (req, res) => {
   const { name, playerIds } = req.body;
