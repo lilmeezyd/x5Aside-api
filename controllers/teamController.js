@@ -4,9 +4,9 @@ import TeamH2H from "../models/teamH2HModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 
 const createTeam = asyncHandler(async (req, res) => {
-  /*const teams = await fetchAndStoreFPLTeams();*/
-fetchAndStoreFPLTeams();
-/*
+  const teams = await fetchAndStoreFPLTeams();
+  //fetchAndStoreFPLTeams();
+
   if (!Array.isArray(teams)) {
     res.status(500);
     throw new Error("Failed to fetch and store FPL teams");
@@ -33,7 +33,7 @@ fetchAndStoreFPLTeams();
           goalsAgainst: 0,
           points: 0,
           recentResults: [],
-        })
+        }),
       );
     }
 
@@ -49,7 +49,7 @@ fetchAndStoreFPLTeams();
           goalsAgainst: 0,
           points: 0,
           recentResults: [],
-        })
+        }),
       );
     }
   }
@@ -61,7 +61,7 @@ fetchAndStoreFPLTeams();
     createdClassic: classicPromises.length,
     createdH2H: h2hPromises.length,
     totalTeams: teams.length,
-  });*/
+  });
 });
 
 export { createTeam };
