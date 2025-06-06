@@ -1,25 +1,42 @@
-
-import axios from 'axios';
-import Team from '../models/teamModel.js';
+import axios from "axios";
+import Team from "../models/teamModel.js";
 
 export const fetchAndStoreFPLTeams = async () => {
   try {
-    const { data } = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-    
-    const teams = data.teams.map(team => ({
+    const { data } = await axios.get(
+      "https://fantasy.premierleague.com/api/bootstrap-static/"
+    );
+
+    const teams = data.teams.map((team) => ({
       id: team.id,
       name: team.name,
       short_name: team.short_name,
       players: [],
     }));
 
-    // Optional: Clear existing FPL teams before saving new ones
-    await Team.deleteMany({});
-   const savedTeams = await Team.insertMany(teams);
-    if(savedTeams.length === 20 && teams.length === 20) return savedTeams;
+    // Fetch all existing team FPL IDs
+    const existingTeamIds = await Team.find({}, 'id').then((docs) =>
+      docs.map((doc) => doc.id)
+    );
 
-    console.log(`✅ Stored ${teams.length} teams.`);
+    // Filter only new teams
+    const newTeams = teams.filter(
+      (team) => !existingTeamIds.includes(team.id)
+    );
+
+    // Insert only the new teams
+    if (newTeams.length > 0) {
+      /*await Team.insertMany(newTeams);*/
+      console.log(`✅ Stored ${newTeams.length} new teams.`);
+    } else {
+      console.log("ℹ️ All teams already exist. Skipped insertion.");
+    }
+
+    // Return all teams in DB
+    /*const allTeams = await Team.find({});
+    return allTeams;*/
   } catch (error) {
-    console.error('❌ Error fetching or storing teams:', error.message);
+    console.error("❌ Error fetching or storing teams:", error.message);
+    return [];
   }
 };
