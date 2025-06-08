@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const teamSchema = new mongoose.Schema({
-  code: Number,
+  id: Number,
   name: String,
   short_name: String,
   players: [{ type:  mongoose.Schema.Types.ObjectId, ref: "Player"

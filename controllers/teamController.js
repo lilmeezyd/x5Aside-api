@@ -65,10 +65,8 @@ const createTeam = asyncHandler(async (req, res) => {
   });
 });
 
-const getTeams = 
-asyncHandler(async (req, res) => {
-  const teams = await
-  Team.find({});
+const getTeams = asyncHandler(async (req, res) => {
+  const teams = await Team.find({});
   res.json(teams);
 });
 
@@ -83,4 +81,29 @@ const getTeamById = asyncHandler(async (req, res) => {
   }
 });
 
-export { createTeam, getTeams, getTeamById };
+const deleteAllTeams = asyncHandler(async (req, res) => {
+  await Team.deleteMany({});
+  await TeamClassic.deleteMany({});
+  await TeamH2H.deleteMany({});
+
+  res.json({ message: "All teams and associated data deleted" });
+});
+const deleteTeam = asyncHandler(async (req, res) => {
+  const teamId = req.params.id;
+
+  const team = await Team.findById(teamId);
+
+  if (team) {
+    await Team.deleteOne({ _id: teamId });
+    await TeamClassic.deleteOne({ team: teamId });
+    await TeamH2H.deleteOne({ team: teamId });
+
+    res.json({ message: "Team and associated data deleted" });
+  } else {
+    res.status(404);
+    throw new Error("Team not found");
+  }
+});
+
+
+export { createTeam, getTeams, getTeamById, deleteAllTeams, deleteTeam };

@@ -9,9 +9,12 @@ const getClassicTable = asyncHandler(async (req, res) => {
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.goalsFor - a.goalsAgainst;
-    const gdB = b.goalsFor - a.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
-    return b.goalsFor - a.goalsFor;
+    // 3. Goals For
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+
+    // 4. Final Tiebreaker: Team ID
+    return a.team.id - b.team.id;
   });
   res.json(sorted);
 });
@@ -24,7 +27,12 @@ const getH2HTable = asyncHandler(async (req, res) => {
     const gdA = a.goalsFor - a.goalsAgainst;
     const gdB = b.goalsFor - a.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
-    return b.goalsFor - a.goalsFor;
+
+    // 3. Goals For
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+
+    // 4. Final Tiebreaker: Team ID
+    return a.team.id - b.team.id;
   });
   res.json(sorted);
 });
