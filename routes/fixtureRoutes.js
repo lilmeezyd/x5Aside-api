@@ -1,12 +1,12 @@
 import express from 'express';
 const router = express.Router();
-import { createFixture, scoreFixtureById } from '../controllers/fixtureController.js';
+import { createFixtures, getFixtures, getFixtureById, scoreFixtureById, deleteAllFixtures } from '../controllers/fixtureController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
-
-router.post('/', protect, createFixture);
-
-
+router.get('/', getFixtures);
+router.get('/:id', getFixtureById);
+router.post('/', createFixtures);
+router.delete('/', deleteAllFixtures);
 router.post("/score-fixture/:fixtureId", scoreFixtureById);
 
 

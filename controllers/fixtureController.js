@@ -2,12 +2,56 @@ import asyncHandler from "express-async-handler";
 import Fixture from "../models/fixtureModel.js";
 import Team from "../models/teamModel.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
-import  scoreFixtures from "../services/scoreFixtures.js";
+import scoreFixtures from "../services/scoreFixtures.js";
+import { fetchFixtures } from "../services/fetchFixtures.js";
 
-const createFixture = asyncHandler(async (req, res) => {
-  const { homeTeam, awayTeam, eventId } = req.body;
-  const fixture = await Fixture.create({ homeTeam, awayTeam, eventId });
-  res.json(fixture);
+const createFixtures = asyncHandler(async (req, res) => {
+  const fixtures = await fetchFixtures();
+  res.json({ fixtures: fixtures.length });
+});
+
+const getFixtures = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({}).lean();
+  // Get all teams once and map by FPL team ID
+  const teams = await Team.find({}).lean();
+  const teamMap = {};
+  for (const team of teams) {
+    teamMap[team.id] = team.name; // Map FPL ID -> Team Name
+  }
+
+  // Replace homeTeam and awayTeam with names
+  const enrichedFixtures = fixtures.map((fixture) => ({
+    ...fixture,
+    homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
+    awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
+  }));
+
+  res.json(enrichedFixtures);
+});
+
+const getFixtureById = asyncHandler(async (req, res) => {
+  const fixture = await Fixture.findById(req.params.id);
+
+  if (fixture) {
+    // Get all teams once and map by FPL team ID
+    const teams = await Team.find({}).lean();
+    const teamMap = {};
+    for (const team of teams) {
+      teamMap[team.id] = team.name; // Map FPL ID -> Team Name
+    }
+
+    // Replace homeTeam and awayTeam with names
+    const enrichedFixtures = fixtures.map((fixture) => ({
+      ...fixture,
+      homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
+      awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
+    }));
+
+    res.json(enrichedFixtures);
+  } else {
+    res.status(404);
+    throw new Error("Fixture not found");
+  }
 });
 
 const scoreFixtureById = async (req, res) => {
@@ -57,4 +101,11 @@ const scoreFixtureById = async (req, res) => {
   res.json({ message: "Fixture scored successfully." });
 };
 
-export { createFixture, scoreFixtureById };
+const deleteAllFixtures = asyncHandler(async (req, res) => {
+  await Fixture.deleteMany({});
+  res.json({ message: "All fixtures deleted successfully" });
+});
+
+
+
+export { createFixtures, getFixtures, getFixtureById, scoreFixtureById, deleteAllFixtures };

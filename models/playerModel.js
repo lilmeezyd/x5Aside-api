@@ -2,11 +2,12 @@ import mongoose from "mongoose";
 
 const playerSchema = new mongoose.Schema(
   {
-    xHandle: String,
-    fplId: Number,
+    xHandle: { type: String, unique: true},
+    fplId: { type: Number, unique: true}, 
     position: { type: String, enum: ["Captain", "Ace", "Fwd", "Mid", "Def"] },
-    team: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
-    points: { type: Number, default: 0 },
+    teamName: String,
+    manager: String,
+    team: { type: mongoose.Schema.Types.Number , ref: "Team" }
   },
   { timestamps: true },
 );

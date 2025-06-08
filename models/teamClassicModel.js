@@ -12,8 +12,10 @@ const teamClassicSchema = new mongoose.Schema({
   points: { type: Number, default: 0 },
   recentResults: [
     {
-      eventId: Number,
-      result: { type: String, enum: ["W", "D", "L"] },
+      eventId: { type: Number, required: true },
+      result: { type: String, enum: ["W", "D", "L"], required: true },
+      goalsFor: { type: Number, required: true },
+      goalsAgainst: { type: Number, required: true },
     },
   ],
 },{timestamps: true});
