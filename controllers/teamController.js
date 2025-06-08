@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
+import Team from "../models/teamModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 
 const createTeam = asyncHandler(async (req, res) => {
@@ -64,4 +65,22 @@ const createTeam = asyncHandler(async (req, res) => {
   });
 });
 
-export { createTeam };
+const getTeams = 
+asyncHandler(async (req, res) => {
+  const teams = await
+  Team.find({});
+  res.json(teams);
+});
+
+const getTeamById = asyncHandler(async (req, res) => {
+  const team = await Team.findById(req.params.id);
+
+  if (team) {
+    res.json(team);
+  } else {
+    res.status(404);
+    throw new Error("Team not found");
+  }
+});
+
+export { createTeam, getTeams, getTeamById };
