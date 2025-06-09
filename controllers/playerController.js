@@ -1,18 +1,26 @@
 import Player from "../models/playerModel.js";
 import asyncHandler from "express-async-handler";
 import PlayerTable from "../models/playerTableModel.js";
-import { fetchData } from "../services/fetchManagerData.js"
-
+import { fetchData } from "../services/fetchManagerData.js";
+import PlayerEventPoints from "../models/playerPointsModel.js";
+import axios from "axios";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
- const data = await fetchData(fplId);
+  const data = await fetchData(fplId);
   const { teamName, manager } = data;
   console.log(data);
-if(!teamName || !manager) {
-  res.status(400);
-  throw new Error("Invalid data");
-}
- const player = await Player.create({ teamName, manager, xHandle, fplId, position, team });
+  if (!teamName || !manager) {
+    res.status(400);
+    throw new Error("Invalid data");
+  }
+  const player = await Player.create({
+    teamName,
+    manager,
+    xHandle,
+    fplId,
+    position,
+    team,
+  });
   await PlayerTable.create({
     player: player._id,
     played: 0,
@@ -24,10 +32,12 @@ if(!teamName || !manager) {
   res.json(player);
 });
 const getPlayers = asyncHandler(async (req, res) => {
-const players = await Player.find({});
-res.json(players)})
+  const players = await Player.find({});
+  res.json(players);
+});
 const deleteAllPlayers = asyncHandler(async (req, res) => {
   await Player.deleteMany({});
+  await PlayerEventPoints.deleteMany({});
   res.json({ message: "All players deleted" });
 });
 
@@ -42,4 +52,51 @@ const deletePlayer = asyncHandler(async (req, res) => {
   }
 });
 
-export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer };
+const fetchAndStorePlayerEventPoints = async (req, res) => {
+  try {
+    const players = await Player.find();
+
+    for (const player of players) {
+      const { fplId, _id: playerId } = player;
+
+      const { data } = await axios.get(
+        `https://fantasy.premierleague.com/api/entry/${fplId}/history/`,
+      );
+      const events = data.current;
+
+      const bulkOps = events.map((event) => ({
+        updateOne: {
+          filter: {
+            player: playerId,
+            eventId: event.event,
+          },
+          update: {
+            $set: {
+              player: playerId,
+              eventId: event.event,
+              eventPoints: event.points,
+              eventTransfersCost: event.event_transfers_cost,
+              overallRank: event.overall_rank,
+              totalPoints: event.total_points
+            },
+          },
+          upsert: true, // Avoid duplicate inserts for same player+event
+        },
+      }));
+
+      if (bulkOps.length > 0) {
+        await PlayerEventPoints.bulkWrite(bulkOps);
+        console.log(`Synced ${bulkOps.length} events for @${player.xHandle}`);
+      }
+    }
+
+    res
+      .status(200)
+      .json({ message: "Player event points updated successfully." });
+  } catch (err) {
+    console.error("Error syncing player event points:", err.message);
+    res.status(500).json({ error: "Failed to sync player event points." });
+  }
+};
+
+export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer, fetchAndStorePlayerEventPoints };
