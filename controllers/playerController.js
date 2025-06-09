@@ -5,8 +5,9 @@ import { fetchData } from "../services/fetchManagerData.js"
 
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
- const data = fetchData(fplId)
+ const data = await fetchData(fplId);
   const { teamName, manager } = data;
+  console.log(data);
 if(!teamName || !manager) {
   res.status(400);
   throw new Error("Invalid data");

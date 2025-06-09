@@ -7,6 +7,7 @@ export const fetchData = async (fplId) => {
 
     const manager = `${data.player_first_name} ${data.player_last_name}`;
     const teamName = data.name;
+    console.log(`Fetched data for FPL ID ${fplId}: ${manager} - ${teamName}`);
 
     return { teamName, manager };
   } catch (error) {
