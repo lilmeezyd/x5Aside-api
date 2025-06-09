@@ -7,7 +7,7 @@ const playerSchema = new mongoose.Schema(
     position: { type: String, enum: ["Captain", "Ace", "Fwd", "Mid", "Def"] },
     teamName: String,
     manager: String,
-    team: { type: mongoose.Schema.Types.Number , ref: "Team" }
+    team: { type: mongoose.Schema.Types.ObjectId , ref: "Team" }
   },
   { timestamps: true },
 );
