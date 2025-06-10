@@ -98,5 +98,18 @@ const fetchAndStorePlayerEventPoints = async (req, res) => {
     res.status(500).json({ error: "Failed to sync player event points." });
   }
 };
+const getPlayerEventPoints = asyncHandler(async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const playerEventPoints = await PlayerEventPoints.find({ player: playerId });
+    res.status(200).json(playerEventPoints);
+  } catch (error) {
+    console.error("Error fetching player event points:", error.message);
+    res.status(500).json({ error: "Failed to fetch player event points." });
+  }
+});
 
-export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer, fetchAndStorePlayerEventPoints };
+
+export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer, 
+fetchAndStorePlayerEventPoints,
+       getPlayerEventPoints };

@@ -5,10 +5,6 @@ import dotenv from "dotenv";
 import { errorHandler } from "./middleware/errorMiddleware.js";
 import connectDB from "./config/db.js";
 import cookieParser from "cookie-parser";
-import  schedulePlayerPointsFetch from "./jobs/schedulePlayerPointsFetch.js";
-
-
-schedulePlayerPointsFetch();
 
 
 
