@@ -2,6 +2,8 @@ import asyncHandler from "express-async-handler";
 import Fixture from "../models/fixtureModel.js";
 import Team from "../models/teamModel.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
+import Player from "../models/playerModel.js";
+import PlayerFixture from "../models/playerFixtureModel.js";
 import scoreFixtures from "../services/scoreFixtures.js";
 import { fetchFixtures } from "../services/fetchFixtures.js";
 
@@ -106,6 +108,295 @@ const deleteAllFixtures = asyncHandler(async (req, res) => {
   res.json({ message: "All fixtures deleted successfully" });
 });
 
+const calculateClassicScores = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+
+  for (const fixture of fixtures) {
+    const { homeTeam, awayTeam } = fixture;
+    const homePlayers = Player.find({ team: homeTeam });
+    const awayPlayers = Player.find({ team: awayTeam });
+
+    let homeTotal = 0;
+    let awayTotal = 0;
+    const homeStats = [];
+    const awayStats = [];
+    let homeScoreClassic = 0;
+    let awayScoreClassic = 0;
+    const homeResult = {};
+    const awayResult = {};
+    const goalsScorers = [];
+
+    for (let player of homePlayers) {
+      const playerPoints = await PlayerEventPoints.findOne({
+        player: player._id,
+        eventId: fixture.eventId,
+      });
+
+      const { eventPoints, eventTransfersCost } = playerPoints;
+      homeTotal += eventPoints - eventTransfersCost;
+      homeStats.push({
+        ...player,
+        points: eventPoints - eventTransfersCost,
+        eventPoints,
+        eventTransfersCost,
+        goals: 0,
+      });
+    }
+
+    for (let player of awayPlayers) {
+      const playerPoints = await PlayerEventPoints.findOne({
+        player: player._id,
+        eventId: fixture.eventId,
+      });
+
+      const { eventPoints, eventTransfersCost } = playerPoints;
+      awayTotal += eventPoints - eventTransfersCost;
+      awayStats.push({
+        ...player,
+        points: eventPoints - eventTransfersCost,
+        eventPoints,
+        eventTransfersCost,
+        goals: 0,
+      });
+    }
+
+    if (homeTotal > awayTotal) {
+      let hDiff = homeTotal - awayTotal;
+      let goalsScored = Math.floor(hDiff / 20) + 1;
+      homeScoreClassic += goalsScored;
+      let extras = goalsScored % 5;
+      let everybody = Math.floor(goalsScored / 5);
+      if (everybody > 0) {
+        homeStats.map((x) => {
+          return { ...x, goals: x.goals + everybody };
+        });
+      }
+      const ids = homeStats
+        .sort((a, b) => b.points - a.points)
+        .slice(0, extras)
+        .map((x) => x._id);
+      homeStats.map((x) => {
+        if (ids.includes(x._id)) {
+          return { ...x, goals: x.goals + 1 };
+        } else {
+          return x;
+        }
+      });
+    }
+
+    if (awayTotal > homeTotal) {
+      let aDiff = awayTotal - homeTotal;
+      let goalsScored = Math.floor(aDiff / 20) + 1;
+      awayScoreClassic += goalsScored;
+      let extras = goalsScored % 5;
+      let everybody = Math.floor(goalsScored / 5);
+      if (everybody > 0) {
+        awayStats.map((x) => {
+          return { ...x, goals: x.goals + everybody };
+        });
+      }
+      const ids = awayStats
+        .sort((a, b) => b.points - a.points)
+        .slice(0, extras)
+        .map((x) => x._id);
+      awayStats.map((x) => {
+        if (ids.includes(x._id)) {
+          return { ...x, goals: x.goals + 1 };
+        } else {
+          return x;
+        }
+      });
+    }
+
+    homeResult.event = fixture.eventId;
+    homeResult.score = `${homeScoreClassic} : ${awayScoreClassic}`;
+    awayResult.event = fixture.eventId;
+    awayResult.score = `${homeScoreClassic} : ${awayScoreClassic}`;
+
+    if (homeScoreClassic > awayScoreClassic) {
+      homeResult.result = "W";
+      awayResult.result = "L";
+    }
+
+    if (awayScoreClassic > homeScoreClassic) {
+      homeResult.result = "L";
+      awayResult.result = "W";
+    }
+
+    if (homeScoreClassic === awayScoreClassic) {
+      homeResult.result = "D";
+      awayResult.result = "D";
+    }
+
+    fixture.homeTotal = homeTotal;
+    fixture.awayTotal = awayTotal;
+    fixture.homeScoreClassic = homeScoreClassic;
+    fixture.awayScoreClassic = awayScoreClassic;
+    fixture.homeStats = homeStats;
+    fixture.awayStats = awayStats;
+    fixture.homeResultClassic = homeResult;
+    fixture.awayResultClassic = awayResult;
+    await fixture.save();
+  }
+  res.json({ message: "Classic scores calculated successfully" });
+});
+
+const calculateH2HScores = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+  for (const fixture of fixtures) {
+    const { homeTeam, awayTeam } = fixture;
+    const homePlayers = await Player.find({ team: homeTeam });
+    const awayPlayers = await Player.find({ team: awayTeam });
+    let homeScoreH2H = 0;
+    let awayScoreH2H = 0;
+    const homeStats = [];
+    const awayStats = [];
+    const homeResult = {};
+    const awayResult = {};
+    for (let homePlayer of homePlayers) {
+      const hPPoints = await PlayerEventPoints.findOne({
+        player: homePlayer._id,
+        eventId: fixture.eventId,
+      });
+      for (let awayPlayer of awayPlayers) {
+        if (homePlayer.position === awayPlayer.position) {
+          const aPPoints = await PlayerEventPoints.findOne({
+            player: awayPlayer._id,
+            eventId: fixture.eventId,
+          });
+
+          // H2H ends in draw
+          if (
+            hPPoints.eventPoints - hPPoints.eventTransfersCost ===
+            aPPoints.eventPoints - aPPoints.eventTransfersCost
+          ) {
+            awayStats.push({
+              ...awayPlayer,
+              goals: 0,
+              eventPoints: aPPoints.eventPoints,
+              eventTransfersCost: aPPoints.eventTransfersCost,
+            });
+            homeStats.push({
+              ...homePlayer,
+              goals: 0,
+              eventPoints: hPPoints.eventPoints,
+              eventTransfersCost: hPPoints.eventTransfersCost,
+            });
+          }
+
+          // Away Player wins H2H
+          if (
+            hPPoints.eventPoints - hPPoints.eventTransfersCost <
+            aPPoints.eventPoints - aPPoints.eventTransfersCost
+          ) {
+            awayScoreH2H += 1;
+            awayStats.push({
+              ...awayPlayer,
+              goals: 1,
+              eventPoints: aPPoints.eventPoints,
+              eventTransfersCost: aPPoints.eventTransfersCost,
+            });
+            homeStats.push({
+              ...homePlayer,
+              goals: 0,
+              eventPoints: hPPoints.eventPoints,
+              eventTransfersCost: hPPoints.eventTransfersCost,
+            });
+          }
+
+          // Home Player wins H2H
+          if (
+            hPPoints.eventPoints - hPPoints.eventTransfersCost >
+            aPPoints.eventPoints - aPPoints.eventTransfersCost
+          ) {
+            homeScoreH2H += 1;
+            homeStats.push({
+              ...homePlayer,
+              goals: 1,
+              eventPoints: hPPoints.eventPoints,
+              eventTransfersCost: hPPoints.eventTransfersCost,
+            });
+
+            awayStats.push({
+              ...awayPlayer,
+              goals: 0,
+              eventPoints: aPPoints.eventPoints,
+              eventTransfersCost: aPPoints.eventTransfersCost,
+            });
+          }
+        }
+      }
+    }
+
+    homeResult.event = fixture.eventId;
+    homeResult.score = `${homeScoreH2H} : ${awayScoreH2H}`;
+    awayResult.event = fixture.eventId;
+    awayResult.score = `${homeScoreH2H} : ${awayScoreH2H}`;
+
+    if (homeScoreH2H > awayScoreH2H) {
+      homeResult.result = "W";
+      awayResult.result = "L";
+    }
+
+    if (awayScoreH2H > homeScoreH2H) {
+      homeResult.result = "L";
+      awayResult.result = "W";
+    }
+
+    if (homeScoreH2H === awayScoreH2H) {
+      homeResult.result = "D";
+      awayResult.result = "D";
+    }
+
+    fixture.homeScoreH2H = homeScoreH2H;
+    fixture.awayScoreH2H = awayScoreH2H;
+    fixture.homeStatsH2H = homeStats;
+    fixture.awayStatsH2H = awayStats;
+    fixture.homeResultH2H = homeResult;
+    fixture.awayResultH2H = awayResult;
+    await fixture.save();
+  }
+
+  res.json({ message: "H2H scores calculated successfully" });
+});
+
+const createPlayerFixtures = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+  for (const fixture of fixtures) {
+    const { homeTeam, awayTeam } = fixture;
+    const homePlayers = await Player.find({ team: homeTeam });
+    const awayPlayers = await Player.find({ team: awayTeam });
+    for (let homePlayer of homePlayers) {
+      for (let awayPlayer of awayPlayers) {
+        if (homePlayer.position === awayPlayer.position) {
+          await PlayerFixture.create({
+            eventId: fixture.eventId, 
+            homePlayer:
+              homePlayer._id,
+            awayPlayer: awayPlayer._id,
+            homeTeam: homePlayer.team, 
+            awayTeam:
+              awayPlayer.team,
+            position: homePlayer.position
+          })
+        }
+      }
+    }
+  }
+
+  res.json({ message: "Player fixtures successfully created"})
+});
 
 
-export { createFixtures, getFixtures, getFixtureById, scoreFixtureById, deleteAllFixtures };
+
+  
+export {
+  createFixtures,
+  getFixtures,
+  getFixtureById,
+  scoreFixtureById,
+  deleteAllFixtures,
+  calculateClassicScores,
+  calculateH2HScores,
+  createPlayerFixtures
+};

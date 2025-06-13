@@ -162,4 +162,12 @@ const getPlayerTable = asyncHandler(async (req, res) => {
   res.json(sorted);
 });
 
-export { getClassicTable, getH2HTable, getPlayerTable };
+const updateClassicTable = asyncHandler(async (req, res) => {});
+
+const updateH2HTable = asyncHandler(async (req, res) => {});
+
+const updatePlayerTable = asyncHandler(async (req, res) => {});
+
+export { getClassicTable, getH2HTable, getPlayerTable,
+       updateClassicTable,
+       updateH2HTable, updatePlayerTable };
