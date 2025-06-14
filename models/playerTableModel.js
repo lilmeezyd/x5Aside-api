@@ -10,14 +10,7 @@ const playerTableSchema = new mongoose.Schema({
   pointsAgainst: { type: Number, default: 0 },
   pointsDifference: { type: Number, default: 0 },
   points: { type: Number, default: 0 },
-  recentResults: [
-    {
-      eventId: { type: Number, required: true },
-      result: { type: String, enum: ["W", "D", "L"], required: true },
-      goalsFor: { type: Number, required: true },
-      goalsAgainst: { type: Number, required: true },
-    },
-  ],
+      result: [],
 }, { timestamps: true });
 
 const PlayerTable = mongoose.model("PlayerTable", playerTableSchema);

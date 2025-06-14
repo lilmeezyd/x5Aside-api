@@ -387,6 +387,46 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   res.json({ message: "Player fixtures successfully created"})
 });
 
+const calculatePlayerFixScores = asyncHandler(async (req, res) => {const fixtures = await PlayerFixture.find({});
+  for (const fixture of fixtures) {
+    const homeResult = {};
+    const awayResult = {};
+    const { homePlayer, awayPlayer, eventId } = fixture;
+    const homePlayerPoints = await PlayerEventPoints.findOne({
+      player: homePlayer,
+      eventId: eventId
+    });
+
+const awayPlayerPoints = await PlayerEventPoints.findOne({
+  player: awayPlayer,
+  eventId: eventId
+});
+    let netAwayPoints = awayPlayerPoints.eventPoints - awayPlayerPoints.eventTransfersCost;
+    let netHomePoints = homePlayerPoints.eventPoints - homePlayerPoints.eventTransfersCost;
+    homeResult.event = fixture.eventId;
+    homeResult.score = `${netHomePoints} : ${netAwayPoints}`;
+    awayResult.event = fixture.eventId;
+    awayResult.score = `${netHomePoints} : ${netAwayPoints}`;
+    if (netHomePoints > netAwayPoints) {
+      homeResult.result = "W";
+     awayResult.result = "L"; }
+    if (netAwayPoints > netHomePoints) {
+      homeResult.result = "L";
+     awayResult.result = "W"; }
+    if (netHomePoints === netAwayPoints) {
+      homeResult.result = "D";
+      awayResult.result = "D";
+    }
+    fixture.homeResult = homeResult;
+   fixture.awayResult = awayResult;
+    fixture.homeScore = netHomePoints;
+    fixture.awayScore = netAwayPoints;
+    await fixture.save();
+  }
+                     
+                                                                  res.json({ message: "Player fixture scores calculated successfully"})
+                                               })
+
 
 
   
@@ -398,5 +438,6 @@ export {
   deleteAllFixtures,
   calculateClassicScores,
   calculateH2HScores,
-  createPlayerFixtures
+  createPlayerFixtures,
+  calculatePlayerFixScores
 };

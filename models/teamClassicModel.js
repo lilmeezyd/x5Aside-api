@@ -13,9 +13,8 @@ const teamClassicSchema = new mongoose.Schema({
   recentResults: [
     {
       eventId: { type: Number, required: true },
-      result: { type: String, enum: ["W", "D", "L"], required: true },
-      goalsFor: { type: Number, required: true },
-      goalsAgainst: { type: Number, required: true },
+      result: [],
+      nextFixture: { type: mongoose.Schema.Types.ObjectId, ref: "Fixture" }
     },
   ],
 },{timestamps: true});
