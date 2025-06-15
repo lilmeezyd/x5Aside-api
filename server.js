@@ -39,7 +39,7 @@ app.use("/api/tables", tableRoutes);
 
 
 app.use(errorHandler)
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT) || 5000;
 app.listen(PORT, () => console.log(`x5Aside API running on port ${PORT}`));
 
 export default app
