@@ -8,8 +8,11 @@ const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
-  console.log(data);
-  if (!teamName || !manager) {
+  if(team === null) {
+    res.status(400);
+    throw new Error("No team added");
+  }
+  if (!fplId || ! position || !teamName || !manager) {
     res.status(400);
     throw new Error("Invalid data");
   }
@@ -29,7 +32,8 @@ const createPlayer = asyncHandler(async (req, res) => {
     losses: 0,
     points: 0,
   });
-  res.json(player);
+  console.log(player)
+  res.json({manager: player.manager});
 });
 const getPlayers = asyncHandler(async (req, res) => {
   const players = await Player.find({});

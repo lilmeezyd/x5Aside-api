@@ -10,6 +10,7 @@ const fixtureSchema = new mongoose.Schema({
    awayStats: [],
    homeStatsH2H: [],
    awayStatsH2H: [],
+   goalScorers: [],
    homeTotal: { type: Number, default: null},
    awayTotal: { type: Number, default: null},
   awayScoreClassic: { type: Number,

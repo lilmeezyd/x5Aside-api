@@ -8,8 +8,9 @@ import scoreFixtures from "../services/scoreFixtures.js";
 import { fetchFixtures } from "../services/fetchFixtures.js";
 
 const createFixtures = asyncHandler(async (req, res) => {
+  await Fixture.deleteMany({});
   const fixtures = await fetchFixtures();
-  res.json({ fixtures: fixtures.length });
+  res.json({ message: `${fixtures.length} fixtures added` });
 });
 
 const getFixtures = asyncHandler(async (req, res) => {
@@ -32,9 +33,9 @@ const getFixtures = asyncHandler(async (req, res) => {
 });
 
 const getFixtureById = asyncHandler(async (req, res) => {
-  const fixture = await Fixture.findById(req.params.id);
+  const fixtures = await Fixture.findById(req.params.id);
 
-  if (fixture) {
+  if (fixtures) {
     // Get all teams once and map by FPL team ID
     const teams = await Team.find({}).lean();
     const teamMap = {};

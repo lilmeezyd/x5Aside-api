@@ -2,6 +2,10 @@ import asyncHandler from "express-async-handler";
 import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
 import Team from "../models/teamModel.js";
+import Player from "../models/playerModel.js";
+import Fixture from "../models/fixtureModel.js";
+import PlayerEventPoints from "../models/playerPointsModel.js";
+import PlayerFixture from "../models/playerFixtureModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 
 const createTeam = asyncHandler(async (req, res) => {
@@ -83,9 +87,12 @@ const getTeamById = asyncHandler(async (req, res) => {
 
 const deleteAllTeams = asyncHandler(async (req, res) => {
   await Team.deleteMany({});
+  await Fixture.deleteMany({});
   await TeamClassic.deleteMany({});
   await TeamH2H.deleteMany({});
-
+  await Player.deleteMany({});
+  await PlayerEventPoints.deleteMany({});
+  await PlayerFixture.deleteMany({});
   res.json({ message: "All teams and associated data deleted" });
 });
 const deleteTeam = asyncHandler(async (req, res) => {
