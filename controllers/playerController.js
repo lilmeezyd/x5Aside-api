@@ -1,12 +1,20 @@
 import Player from "../models/playerModel.js";
 import asyncHandler from "express-async-handler";
 import PlayerTable from "../models/playerTableModel.js";
+import Fixture from "../models/fixtureModel.js";
 import { fetchData } from "../services/fetchManagerData.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
 import Team from "../models/teamModel.js";
+import Leaderboard from "../models/leaderboardModel.js";
 import axios from "axios";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
+  const positionTaken = await Player.find({ position, team });
+  console.log(positionTaken)
+  if (positionTaken.length > 0) {
+    res.status(400);
+    throw new Error("Position already taken");
+  }
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
   if(team === null) {
@@ -116,7 +124,48 @@ const getPlayerEventPoints = asyncHandler(async (req, res) => {
   }
 });
 
+const updateLeadingScorers = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+  const goalsScorers = [];
+  for (const fixture of fixtures) {
+    const { homeStats, awayStats } = fixture;
+    goalsScorers.push(...homeStats, ...awayStats);
+  }
+  if(goalsScorers.length > 0) {
+    function mergeGoalsById(data) {
+  const result = {};
 
-export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer, 
+  for (const player of data) {
+    const { _id, goals } = player;
+
+    if (!result[_id]) {
+      result[_id] = { _id, goals };
+    } else {
+      result[_id].goals += goals;
+    }
+  }
+
+  // Convert to array and sort by goals descending
+  return Object.values(result).sort((a, b) => b.goals - a.goals);
+}
+    const mergedPlayers = mergeGoalsById(goalsScorers);
+    const leaderboardEntries = mergedPlayers.map(p => ({
+  player: p._id,   // assuming `id` is already a valid ObjectId
+  goals: p.goals
+}));
+
+    await Leaderboard.deleteMany({});
+
+await Leaderboard.insertMany(leaderboardEntries);
+    res.json({ message: "Leading scorers updated successfully" });
+  }
+});
+                                   const getLeadingScorers = asyncHandler(async (req, res) => {
+                                     const leadingScorers = await Leaderboard.find({}).populate('player');
+                                   })       
+
+export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer,
+        updateLeadingScorers,
+        getLeadingScorers,
 fetchAndStorePlayerEventPoints,
        getPlayerEventPoints };

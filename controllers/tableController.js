@@ -3,7 +3,7 @@ import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
 import PlayerTable from "../models/playerTableModel.js";
 import Fixture from "../models/fixtureModel.js";
-/*
+
 const getClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
   const table = await TeamClassic.find().populate("team").lean();
@@ -17,13 +17,13 @@ const getClassicTable = asyncHandler(async (req, res) => {
     return a.team.id - b.team.id;
   });
   res.json(sorted);
-});*/
-
+});
+/*
 const getClassicTable = asyncHandler(async (req, res) => {
   let eventId = parseInt(req.query.eventId);
   if (isNaN(eventId)) {
-    /*res.status(400);
-    throw new Error("Missing or invalid eventId");*/
+    res.status(400);
+    throw new Error("Missing or invalid eventId");
     eventId = 38;
   }
 
@@ -77,9 +77,9 @@ const getClassicTable = asyncHandler(async (req, res) => {
   });
 
   res.json(sorted);
-});
+});*/
 
-/*
+
 const getH2HTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
   const table = await TeamH2H.find().populate("team").lean();
@@ -96,13 +96,13 @@ const getH2HTable = asyncHandler(async (req, res) => {
     return a.team.id - b.team.id;
   });
   res.json(sorted);
-});*/
-
+});
+/*
 const getH2HTable = asyncHandler(async (req, res) => {
   let eventId = parseInt(req.query.eventId);
   if (isNaN(eventId)) {
     /*res.status(400);
-    throw new Error("Missing or invalid eventId");*/
+    throw new Error("Missing or invalid eventId");
     eventId = 38;
   }
 
@@ -156,7 +156,7 @@ const getH2HTable = asyncHandler(async (req, res) => {
   });
 
   res.json(sorted);
-});
+});*/
 
 const getPlayerTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
