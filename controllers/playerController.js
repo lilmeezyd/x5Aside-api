@@ -3,6 +3,7 @@ import asyncHandler from "express-async-handler";
 import PlayerTable from "../models/playerTableModel.js";
 import { fetchData } from "../services/fetchManagerData.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
+import Team from "../models/teamModel.js";
 import axios from "axios";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
@@ -16,6 +17,7 @@ const createPlayer = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Invalid data");
   }
+  const playerTeam = await Team.findById(team);
   const player = await Player.create({
     teamName,
     manager,
@@ -32,7 +34,8 @@ const createPlayer = asyncHandler(async (req, res) => {
     losses: 0,
     points: 0,
   });
-  console.log(player)
+  playerTeam.players.push(player.id);
+  await playerTeam.save();
   res.json({manager: player.manager});
 });
 const getPlayers = asyncHandler(async (req, res) => {

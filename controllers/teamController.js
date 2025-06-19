@@ -70,7 +70,8 @@ const createTeam = asyncHandler(async (req, res) => {
 });
 
 const getTeams = asyncHandler(async (req, res) => {
-  const teams = await Team.find({});
+  const teams = await Team.find({}).populate('players');
+  console.log(teams[0]);
   res.json(teams);
 });
 
