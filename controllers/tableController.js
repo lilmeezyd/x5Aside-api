@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
 import PlayerTable from "../models/playerTableModel.js";
+import PlayerFixture from "../models/playerFixtureModel.js"
 import Fixture from "../models/fixtureModel.js";
 
 const getClassicTable = asyncHandler(async (req, res) => {
@@ -173,7 +174,7 @@ const getPlayerTable = asyncHandler(async (req, res) => {
 
 const updateClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.params.eventId);
-  const fixtures = await Fixture.find({ eventId });
+  const fixtures = await Fixture.find({});
   const table = await TeamClassic.find({});
   
   for (const row of table) {
@@ -242,7 +243,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
 const updateH2HTable = asyncHandler(async (req, res) => {
 {
   const eventId = parseInt(req.params.eventId);
-  const fixtures = await Fixture.find({ eventId });
+  const fixtures = await Fixture.find({ });
   const table = await TeamH2H.find({});
   
   for (const row of table) {
@@ -309,7 +310,72 @@ const updateH2HTable = asyncHandler(async (req, res) => {
 
 }});
 
-const updatePlayerTable = asyncHandler(async (req, res) => {});
+const updatePlayerTable = asyncHandler(async (req, res) => {
+  const fixtures = await PlayerFixture.find({ });
+  const table = await PlayerTable.find({});
+
+  for (const row of table) {
+    let totalPoints = 0;
+    let GF = 0;
+    let GA = 0;
+    let W = 0;
+    let D = 0;
+    let L = 0;
+    let P = 0;
+    let GD = 0;
+    const results = [];
+    for (const fixture of fixtures) {
+      if (fixture.homePlayer === row.player || fixture.awayPlayer === row.player) {
+        P++;
+        // Update team stats if they're home
+        if (fixture.homePlayer === row.player) {
+          results.push(fixture.homeResult);
+          GF+= fixture.homeScore;
+            GA+= fixture.awayScore;
+            GD+= (fixture.homeScore - fixture.awayScore);
+      if (fixture.homeScore > fixture.awayScore) {
+            W++;
+            totalPoints += 3;
+
+          }
+        } else if (fixture.homeScore < fixture.awayScore) {
+          L++;
+        } else {
+          D++;
+          totalPoints += 1;
+        }
+
+        // Update teams stats if they're away
+        if (fixture.awayPlayer === row.player) {results.push(fixture.awayResult);
+                                            GF+= fixture.awayScore;
+            GA+= fixture.homeScore;
+            GD+= (fixture.awayScore - fixture.homeScore);
+      if (fixture.homeScore > fixture.awayScore) {
+            L++;
+          }
+        } else if (fixture.homeScore < fixture.awayScore) {
+          W++;
+          totalPoints += 3;
+        } else {
+          D++;
+          totalPoints += 1;
+        }
+      }
+    }
+    row.played = P;
+    row.win = W;
+    row.draw = D;
+    row.loss = L;
+    row.goalsFor = GF;
+    row.goalsAgainst = GA;
+    row.goalDifference = GD;
+    row.points = totalPoints;
+    row.recentResults = results;
+    await row.save();
+  }
+
+  res.json({ message: "Players table updated successfully"});
+});
 
 export {
   getClassicTable,

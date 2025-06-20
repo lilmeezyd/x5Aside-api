@@ -106,6 +106,7 @@ const scoreFixtureById = async (req, res) => {
 
 const deleteAllFixtures = asyncHandler(async (req, res) => {
   await Fixture.deleteMany({});
+  await PlayerFixture.deleteMany({});
   res.json({ message: "All fixtures deleted successfully" });
 });
 
@@ -388,6 +389,11 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   res.json({ message: "Player fixtures successfully created"})
 });
 
+const getPlayerFixtures = asyncHandler(async (req, res) => {
+  const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer").populate("homeTeam").populate("awayTeam");
+  res.json(playerFixtures);
+})
+
 const calculatePlayerFixScores = asyncHandler(async (req, res) => {const fixtures = await PlayerFixture.find({});
   for (const fixture of fixtures) {
     const homeResult = {};
@@ -440,5 +446,6 @@ export {
   calculateClassicScores,
   calculateH2HScores,
   createPlayerFixtures,
-  calculatePlayerFixScores
+  calculatePlayerFixScores,
+  getPlayerFixtures
 };

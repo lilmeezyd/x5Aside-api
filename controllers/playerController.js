@@ -6,25 +6,32 @@ import { fetchData } from "../services/fetchManagerData.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
 import Team from "../models/teamModel.js";
 import Leaderboard from "../models/leaderboardModel.js";
+import PlayerFixture from "../models/playerFixtureModel.js";
 import axios from "axios";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
+  if (!fplId || !position || !teamName || !manager) {
+    res.status(400);
+    throw new Error("Invalid data");
+  }
+  const playerExists = await Player.findOne({ fplId });
+  if (playerExists) {
+    res.status(400);
+    throw new Error("Fpl Id already exists");
+  }
   const positionTaken = await Player.find({ position, team });
-  console.log(positionTaken)
+  console.log(positionTaken);
   if (positionTaken.length > 0) {
     res.status(400);
     throw new Error("Position already taken");
   }
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
-  if(team === null) {
+  if (team === null) {
     res.status(400);
     throw new Error("No team added");
   }
-  if (!fplId || ! position || !teamName || !manager) {
-    res.status(400);
-    throw new Error("Invalid data");
-  }
+  
   const playerTeam = await Team.findById(team);
   const player = await Player.create({
     teamName,
@@ -44,15 +51,24 @@ const createPlayer = asyncHandler(async (req, res) => {
   });
   playerTeam.players.push(player.id);
   await playerTeam.save();
-  res.json({manager: player.manager});
+  res.json({ manager: player.manager });
 });
 const getPlayers = asyncHandler(async (req, res) => {
-  const players = await Player.find({});
+  const players = await Player.find({}).populate("team");
   res.json(players);
 });
 const deleteAllPlayers = asyncHandler(async (req, res) => {
   await Player.deleteMany({});
   await PlayerEventPoints.deleteMany({});
+  await PlayerFixture.deleteMany({});
+  await PlayerTable.deleteMany({});
+  await Leaderboard.deleteMany({});
+  await Team.updateMany(
+    {},
+    {
+      $set: { players: [] },
+    },
+  );
   res.json({ message: "All players deleted" });
 });
 
@@ -60,6 +76,14 @@ const deletePlayer = asyncHandler(async (req, res) => {
   const player = await Player.findById(req.params.id);
   if (player) {
     await Player.deleteOne({ _id: player._id }); // Use deleteOne instead of remove
+    await PlayerEventPoints.deleteMany({ player: player._id });
+    await PlayerFixture.deleteMany({ player: player._id });
+    await PlayerTable.deleteOne({ player: player._id });
+    await Leaderboard.deleteOne({ player: player._id });
+    await Team.updateOne(
+      { _id: player.team },
+      { $pull: { players: player._id } },
+    );
     res.json({ message: "Player removed" });
   } else {
     res.status(404);
@@ -67,6 +91,13 @@ const deletePlayer = asyncHandler(async (req, res) => {
   }
 });
 
+const updatePlayer = asyncHandler(async (req, res) => {
+  const updatedPlayer = await Player.updateOne(
+    { _id: req.params.id },
+    req.body,
+  );
+  res.json({ message: `Player ${updatedPlayer.manager} updated` });
+});
 const fetchAndStorePlayerEventPoints = async (req, res) => {
   try {
     const players = await Player.find();
@@ -92,7 +123,7 @@ const fetchAndStorePlayerEventPoints = async (req, res) => {
               eventPoints: event.points,
               eventTransfersCost: event.event_transfers_cost,
               overallRank: event.overall_rank,
-              totalPoints: event.total_points
+              totalPoints: event.total_points,
             },
           },
           upsert: true, // Avoid duplicate inserts for same player+event
@@ -116,7 +147,9 @@ const fetchAndStorePlayerEventPoints = async (req, res) => {
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
   try {
     const { playerId } = req.params;
-    const playerEventPoints = await PlayerEventPoints.find({ player: playerId });
+    const playerEventPoints = await PlayerEventPoints.find({
+      player: playerId,
+    });
     res.status(200).json(playerEventPoints);
   } catch (error) {
     console.error("Error fetching player event points:", error.message);
@@ -131,41 +164,48 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
     const { homeStats, awayStats } = fixture;
     goalsScorers.push(...homeStats, ...awayStats);
   }
-  if(goalsScorers.length > 0) {
+  if (goalsScorers.length > 0) {
     function mergeGoalsById(data) {
-  const result = {};
+      const result = {};
 
-  for (const player of data) {
-    const { _id, goals } = player;
+      for (const player of data) {
+        const { _id, goals } = player;
 
-    if (!result[_id]) {
-      result[_id] = { _id, goals };
-    } else {
-      result[_id].goals += goals;
+        if (!result[_id]) {
+          result[_id] = { _id, goals };
+        } else {
+          result[_id].goals += goals;
+        }
+      }
+
+      // Convert to array and sort by goals descending
+      return Object.values(result).sort((a, b) => b.goals - a.goals);
     }
-  }
-
-  // Convert to array and sort by goals descending
-  return Object.values(result).sort((a, b) => b.goals - a.goals);
-}
     const mergedPlayers = mergeGoalsById(goalsScorers);
-    const leaderboardEntries = mergedPlayers.map(p => ({
-  player: p._id,   // assuming `id` is already a valid ObjectId
-  goals: p.goals
-}));
+    const leaderboardEntries = mergedPlayers.map((p) => ({
+      player: p._id, // assuming `id` is already a valid ObjectId
+      goals: p.goals,
+    }));
 
     await Leaderboard.deleteMany({});
 
-await Leaderboard.insertMany(leaderboardEntries);
+    await Leaderboard.insertMany(leaderboardEntries);
     res.json({ message: "Leading scorers updated successfully" });
   }
 });
-                                   const getLeadingScorers = asyncHandler(async (req, res) => {
-                                     const leadingScorers = await Leaderboard.find({}).populate('player');
-                                   })       
+const getLeadingScorers = asyncHandler(async (req, res) => {
+  const leadingScorers = await Leaderboard.find({}).populate("player");
+  res.json(leadingScorers);
+});
 
-export { createPlayer, getPlayers, deleteAllPlayers, deletePlayer,
-        updateLeadingScorers,
-        getLeadingScorers,
-fetchAndStorePlayerEventPoints,
-       getPlayerEventPoints };
+export {
+  createPlayer,
+  getPlayers,
+  deleteAllPlayers,
+  deletePlayer,
+  updatePlayer,
+  updateLeadingScorers,
+  getLeadingScorers,
+  fetchAndStorePlayerEventPoints,
+  getPlayerEventPoints,
+};
