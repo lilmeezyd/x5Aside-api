@@ -98,12 +98,14 @@ const updatePlayer = asyncHandler(async (req, res) => {
   );
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
-const fetchAndStorePlayerEventPoints = async (req, res) => {
+const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   try {
-    const players = await Player.find();
+    const players = await Player.find({});
+    console.log(players[0])
 
     for (const player of players) {
       const { fplId, _id: playerId } = player;
+     console.log(playerId, player)
 
       const { data } = await axios.get(
         `https://fantasy.premierleague.com/api/entry/${fplId}/history/`,
@@ -143,7 +145,7 @@ const fetchAndStorePlayerEventPoints = async (req, res) => {
     console.error("Error syncing player event points:", err.message);
     res.status(500).json({ error: "Failed to sync player event points." });
   }
-};
+});
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
   try {
     const { playerId } = req.params;
