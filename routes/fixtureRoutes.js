@@ -6,7 +6,6 @@ import { createFixtures, getFixtures, getFixtureById, scoreFixtureById, deleteAl
 import { protect } from '../middleware/authMiddleware.js';
 
 router.get('/', getFixtures);
-router.get('/:id', getFixtureById);
 router.post('/', createFixtures);
 router.delete('/', deleteAllFixtures);
 router.patch("/calculate-classic-scores", calculateClassicScores);
@@ -15,6 +14,7 @@ router.post("/create-player-fixtures", createPlayerFixtures);
 router.patch("/calculate-player-fixture-scores", calculatePlayerFixScores);
 router.get("/player-fixtures", getPlayerFixtures);
 router.post("/score-fixture/:fixtureId", scoreFixtureById);
+router.get('/:id', getFixtureById)
 
 
 export default router;

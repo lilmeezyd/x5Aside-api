@@ -10,13 +10,15 @@ import PlayerFixture from "../models/playerFixtureModel.js";
 import axios from "axios";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
-  if (!fplId || !position || !teamName || !manager) {
+  if (!fplId || !position || !team) {
     res.status(400);
+    console.log("Invalid data");
     throw new Error("Invalid data");
   }
   const playerExists = await Player.findOne({ fplId });
   if (playerExists) {
     res.status(400);
+    console.log("Fpl Id already taken")
     throw new Error("Fpl Id already exists");
   }
   const positionTaken = await Player.find({ position, team });
@@ -27,6 +29,7 @@ const createPlayer = asyncHandler(async (req, res) => {
   }
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
+  console.log(data)
   if (team === null) {
     res.status(400);
     throw new Error("No team added");

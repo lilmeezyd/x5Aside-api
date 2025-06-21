@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 const playerFixtureSchema = new mongoose.Schema(
-                   {                   eventId: Number,                   homeTeam: { type: mongoose.Schema.Types.Number, ref: "Team",},
-awayTeam: { type: mongoose.Schema.Types.Number, ref: "Team",},
+                   {                   eventId: Number,                   homeTeam: { type: mongoose.Schema.Types.ObjectId, ref: "Team",},
+awayTeam: { type: mongoose.Schema.Types.ObjectId, ref: "Team",},
 homePlayer: { type: mongoose.Schema.Types.ObjectId, ref: "Player",
 },
 awayPlayer: { type: mongoose.Schema.Types.ObjectId,
@@ -12,7 +12,7 @@ homeScore: { type: Number,default: null,},
 awayScore: { type: Number,default: null,
 },
 position: { type: String, enum: [
-"Captain", "Ace", "Fwd", "Mid", "Def", ],                           },
+"Captain", "Ace", "Forward", "Midfielder", "Defender", ],                           },
 homeResult: {},
 awayResult: {},
 isPlayed: {

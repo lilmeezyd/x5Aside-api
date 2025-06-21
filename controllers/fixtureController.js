@@ -366,8 +366,13 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({});
   for (const fixture of fixtures) {
     const { homeTeam, awayTeam } = fixture;
-    const homePlayers = await Player.find({ team: homeTeam });
-    const awayPlayers = await Player.find({ team: awayTeam });
+    
+    const homeId = await Team.findOne({id: homeTeam});
+    const awayId = await Team.findOne({id: awayTeam});
+console.log(homeId._id, awayId._id);
+
+    const homePlayers = await Player.find({ team: homeId._id });
+    const awayPlayers = await Player.find({ team: awayId._id });
     for (let homePlayer of homePlayers) {
       for (let awayPlayer of awayPlayers) {
         if (homePlayer.position === awayPlayer.position) {
