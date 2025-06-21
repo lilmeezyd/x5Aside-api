@@ -395,7 +395,7 @@ console.log(homeId._id, awayId._id);
 });
 
 const getPlayerFixtures = asyncHandler(async (req, res) => {
-  const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer").populate("homeTeam").populate("awayTeam");
+  const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer");
   res.json(playerFixtures);
 })
 
