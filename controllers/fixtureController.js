@@ -115,8 +115,11 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
 
   for (const fixture of fixtures) {
     const { homeTeam, awayTeam } = fixture;
-    const homePlayers = Player.find({ team: homeTeam });
-    const awayPlayers = Player.find({ team: awayTeam });
+    const homeId = await Team.findOne({id: homeTeam});
+    const awayId = await Team.findOne({id: awayTeam});
+    
+    const homePlayers = await Player.find({ team: homeId._id }).lean();
+    const awayPlayers = await Player.find({ team: awayId._id }).lean();
 
     let homeTotal = 0;
     let awayTotal = 0;
@@ -132,7 +135,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
       const playerPoints = await PlayerEventPoints.findOne({
         player: player._id,
         eventId: fixture.eventId,
-      });
+      }).lean();
 
       const { eventPoints, eventTransfersCost } = playerPoints;
       homeTotal += eventPoints - eventTransfersCost;
@@ -149,7 +152,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
       const playerPoints = await PlayerEventPoints.findOne({
         player: player._id,
         eventId: fixture.eventId,
-      });
+      }).lean();
 
       const { eventPoints, eventTransfersCost } = playerPoints;
       awayTotal += eventPoints - eventTransfersCost;
@@ -209,8 +212,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
         }
       });
     }
-
-    homeResult.event = fixture.eventId;
+homeResult.event = fixture.eventId;
     homeResult.score = `${homeScoreClassic} : ${awayScoreClassic}`;
     awayResult.event = fixture.eventId;
     awayResult.score = `${homeScoreClassic} : ${awayScoreClassic}`;
@@ -240,15 +242,20 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
     fixture.awayResultClassic = awayResult;
     await fixture.save();
   }
-  res.json({ message: "Classic scores calculated successfully" });
-});
+  
+  res.json({ message: "Classic scores calculated successfully" })
+  });
 
 const calculateH2HScores = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({});
   for (const fixture of fixtures) {
-    const { homeTeam, awayTeam } = fixture;
-    const homePlayers = await Player.find({ team: homeTeam });
-    const awayPlayers = await Player.find({ team: awayTeam });
+    const { homeTeam, awayTeam } = fixture; 
+
+    const homeId = await Team.findOne({id: homeTeam});
+    const awayId = await Team.findOne({id: awayTeam});
+    
+    const homePlayers = await Player.find({ team: homeId._id }).lean();
+    const awayPlayers = await Player.find({ team: awayId._id }).lean();
     let homeScoreH2H = 0;
     let awayScoreH2H = 0;
     const homeStats = [];
@@ -259,13 +266,13 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
       const hPPoints = await PlayerEventPoints.findOne({
         player: homePlayer._id,
         eventId: fixture.eventId,
-      });
+      }).lean();
       for (let awayPlayer of awayPlayers) {
         if (homePlayer.position === awayPlayer.position) {
           const aPPoints = await PlayerEventPoints.findOne({
             player: awayPlayer._id,
             eventId: fixture.eventId,
-          });
+          }).lean();
 
           // H2H ends in draw
           if (
@@ -369,7 +376,7 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
     
     const homeId = await Team.findOne({id: homeTeam});
     const awayId = await Team.findOne({id: awayTeam});
-console.log(homeId._id, awayId._id);
+
 
     const homePlayers = await Player.find({ team: homeId._id });
     const awayPlayers = await Player.find({ team: awayId._id });
