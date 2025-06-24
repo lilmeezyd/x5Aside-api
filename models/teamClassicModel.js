@@ -10,12 +10,7 @@ const teamClassicSchema = new mongoose.Schema({
   goalsAgainst: { type: Number, default: 0 },
   goalDifference: { type: Number, default: 0 },
   points: { type: Number, default: 0 },
-  recentResults: [
-    {
-      eventId: { type: Number, required: true },
-      result: [],
-      nextFixture: { type: mongoose.Schema.Types.ObjectId, ref: "Fixture" }
-    },
+  result: [
   ],
 },{timestamps: true});
 export default mongoose.model("TeamClassic", teamClassicSchema);

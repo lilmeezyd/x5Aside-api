@@ -1,4 +1,5 @@
 import asyncHandler from "express-async-handler";
+import Team from "../models/teamModel.js";
 import TeamClassic from "../models/teamClassicModel.js";
 import TeamH2H from "../models/teamH2HModel.js";
 import PlayerTable from "../models/playerTableModel.js";
@@ -11,6 +12,7 @@ const getClassicTable = asyncHandler(async (req, res) => {
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - a.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
 
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
@@ -185,10 +187,11 @@ const updateClassicTable = asyncHandler(async (req, res) => {
     let GD = 0;
     const results = [];
     for (const fixture of fixtures) {
-      if (fixture.homeTeam === row.team || fixture.awayTeam === row.team) {
+      const homeId = await Team.findOne({id: fixture.homeTeam});
+      const awayId = await Team.findOne({id:fixture.awayTeam});      if ((row.team.toString() === homeId._id.toString()) || (row.team.toString() === awayId._id.toString())) {
         P++;
         // Update team stats if they're home
-        if (fixture.homeTeam === row.team) {
+        if (row.team.toString() === homeId._id.toString())  {
           results.push(fixture.homeResultClassic);
           GF += fixture.homeScoreClassic;
           GA += fixture.awayScoreClassic;
@@ -196,23 +199,23 @@ const updateClassicTable = asyncHandler(async (req, res) => {
           if (fixture.homeScoreClassic > fixture.awayScoreClassic) {
             W++;
             totalPoints += 3;
-          }
+          
         } else if (fixture.homeScoreClassic < fixture.awayScoreClassic) {
           L++;
         } else {
           D++;
           totalPoints += 1;
         }
-
+        }
         // Update teams stats if they're away
-        if (fixture.awayTeam === row.team) {
+        if (row.team.toString() === awayId._id.toString()) {
           results.push(fixture.awayResultClassic);
           GF += fixture.awayScoreClassic;
           GA += fixture.homeScoreClassic;
           GD += fixture.awayScoreClassic - fixture.homeScoreClassic;
           if (fixture.homeScoreClassic > fixture.awayScoreClassic) {
             L++;
-          }
+          
         } else if (fixture.homeScoreClassic < fixture.awayScoreClassic) {
           W++;
           totalPoints += 3;
@@ -220,6 +223,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
           D++;
           totalPoints += 1;
         }
+      }
       }
     }
     row.played = P;
@@ -230,7 +234,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
     row.goalsAgainst = GA;
     row.goalDifference = GD;
     row.points = totalPoints;
-    row.recentResults = results;
+    row.result = results;
     await row.save();
   }
 
@@ -254,10 +258,11 @@ const updateH2HTable = asyncHandler(async (req, res) => {
       let GD = 0;
       const results = [];
       for (const fixture of fixtures) {
-        if (fixture.homeTeam === row.team || fixture.awayTeam === row.team) {
+        const homeId = await Team.findOne({id: fixture.homeTeam});
+        const awayId = await Team.findOne({id:fixture.awayTeam});      if ((row.team.toString() === homeId._id.toString()) || (row.team.toString() === awayId._id.toString())) {
           P++;
           // Update team stats if they're home
-          if (fixture.homeTeam === row.team) {
+          if (row.team.toString() === homeId._id.toString()) {
             results.push(fixture.homeResultH2H);
             GF += fixture.homeScoreH2H;
             GA += fixture.awayScoreH2H;
@@ -265,23 +270,23 @@ const updateH2HTable = asyncHandler(async (req, res) => {
             if (fixture.homeScoreH2H > fixture.awayScoreH2H) {
               W++;
               totalPoints += 3;
-            }
+            
           } else if (fixture.homeScoreH2H < fixture.awayScoreH2H) {
             L++;
           } else {
             D++;
             totalPoints += 1;
           }
+        }
 
           // Update teams stats if they're away
-          if (fixture.awayTeam === row.team) {
+          if (row.team.toString() === awayId._id.toString() ){
             results.push(fixture.awayResultH2H);
             GF += fixture.awayScoreH2H;
             GA += fixture.homeScoreH2H;
             GD += fixture.awayScoreH2H - fixture.homeScoreH2H;
             if (fixture.homeScoreH2H > fixture.awayScoreH2H) {
               L++;
-            }
           } else if (fixture.homeScoreH2H < fixture.awayScoreH2H) {
             W++;
             totalPoints += 3;
@@ -291,6 +296,7 @@ const updateH2HTable = asyncHandler(async (req, res) => {
           }
         }
       }
+      }
       row.played = P;
       row.win = W;
       row.draw = D;
@@ -299,7 +305,7 @@ const updateH2HTable = asyncHandler(async (req, res) => {
       row.goalsAgainst = GA;
       row.goalDifference = GD;
       row.points = totalPoints;
-      row.recentResults = results;
+      row.result = results;
       await row.save();
     }
 
