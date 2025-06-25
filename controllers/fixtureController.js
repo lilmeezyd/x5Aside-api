@@ -15,7 +15,6 @@ const createFixtures = asyncHandler(async (req, res) => {
 
 const getFixtures = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({}).lean();
-  // Get all teams once and map by FPL team ID
   const teams = await Team.find({}).lean();
   const teamMap = {};
   for (const team of teams) {
@@ -109,7 +108,7 @@ const deleteAllFixtures = asyncHandler(async (req, res) => {
   await PlayerFixture.deleteMany({});
   res.json({ message: "All fixtures deleted successfully" });
 });
-
+/*
 const calculateClassicScores = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({});
 
@@ -244,8 +243,261 @@ homeResult.event = fixture.eventId;
   }
   
   res.json({ message: "Classic scores calculated successfully" })
-  });
+  });*/
+const calculateClassicScores = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
 
+  // Cache teams
+  const allTeams = await Team.find({});
+  const teamMap = {};
+  for (const team of allTeams) {
+    teamMap[team.id] = team._id.toString();
+  }
+
+  // Cache all players and group them by teamId
+  const allPlayers = await Player.find({}).lean();
+  const playersByTeam = {};
+  for (const p of allPlayers) {
+    const tid = p.team.toString();
+    if (!playersByTeam[tid]) playersByTeam[tid] = [];
+    playersByTeam[tid].push(p);
+  }
+
+  // Cache all points
+  const allPoints = await PlayerEventPoints.find({}).lean();
+  const pointsMap = {};
+  for (const p of allPoints) {
+    pointsMap[`${p.player}_${p.eventId}`] = p;
+  }
+
+  const bulkOps = [];
+
+  for (const fixture of fixtures) {
+    const homeTeamId = teamMap[fixture.homeTeam];
+    const awayTeamId = teamMap[fixture.awayTeam];
+    const eventId = fixture.eventId;
+
+    const homePlayers = playersByTeam[homeTeamId] || [];
+    const awayPlayers = playersByTeam[awayTeamId] || [];
+
+    let homeTotal = 0;
+    let awayTotal = 0;
+    let homeScoreClassic = 0;
+    let awayScoreClassic = 0;
+
+    const homeStats = [];
+    const awayStats = [];
+
+    for (const p of homePlayers) {
+      const points = pointsMap[`${p._id}_${eventId}`];
+      if (!points) continue;
+      const net = points.eventPoints - points.eventTransfersCost;
+      homeTotal += net;
+      homeStats.push({ ...p, points: net, goals: 0, eventPoints: points.eventPoints, eventTransfersCost: points.eventTransfersCost });
+    }
+
+    for (const p of awayPlayers) {
+      const points = pointsMap[`${p._id}_${eventId}`];
+      if (!points) continue;
+      const net = points.eventPoints - points.eventTransfersCost;
+      awayTotal += net;
+      awayStats.push({ ...p, points: net, goals: 0, eventPoints: points.eventPoints, eventTransfersCost: points.eventTransfersCost });
+    }
+
+    // Determine score and goal assignment
+    const assignGoals = (stats, diff) => {
+      let goalsScored = Math.floor(diff / 20) + 1;
+      let extras = goalsScored % 5;
+      let everybody = Math.floor(goalsScored / 5);
+
+      if (everybody > 0) {
+        for (let i = 0; i < stats.length; i++) {
+          stats[i].goals += everybody;
+        }
+      }
+
+      const topIds = stats
+        .sort((a, b) => b.points - a.points)
+        .slice(0, extras)
+        .map(p => p._id.toString());
+
+      for (let i = 0; i < stats.length; i++) {
+        if (topIds.includes(stats[i]._id.toString())) {
+          stats[i].goals += 1;
+        }
+      }
+
+      return goalsScored;
+    };
+
+    if (homeTotal > awayTotal) {
+      homeScoreClassic = assignGoals(homeStats, homeTotal - awayTotal);
+    } else if (awayTotal > homeTotal) {
+      awayScoreClassic = assignGoals(awayStats, awayTotal - homeTotal);
+    }
+
+    // Prepare result
+    const homeResult = {
+      event: eventId,
+      score: `${homeScoreClassic} : ${awayScoreClassic}`,
+      result:
+        homeScoreClassic > awayScoreClassic
+          ? "W"
+          : homeScoreClassic < awayScoreClassic
+          ? "L"
+          : "D",
+    };
+
+    const awayResult = {
+      event: eventId,
+      score: `${homeScoreClassic} : ${awayScoreClassic}`,
+      result:
+        awayScoreClassic > homeScoreClassic
+          ? "W"
+          : awayScoreClassic < homeScoreClassic
+          ? "L"
+          : "D",
+    };
+
+    // Push to bulk write array
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: fixture._id },
+        update: {
+          $set: {
+            homeTotal,
+            awayTotal,
+            homeScoreClassic,
+            awayScoreClassic,
+            homeStats,
+            awayStats,
+            homeResultClassic: homeResult,
+            awayResultClassic: awayResult,
+          },
+        },
+      },
+    });
+  }
+
+  if (bulkOps.length > 0) {
+    await Fixture.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "Classic scores calculated successfully" });
+});
+const calculateH2HScores = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+  const allTeams = await Team.find({});
+  const teamMap = {};
+  for (const team of allTeams) {
+    teamMap[team.id] = team._id.toString();
+  }
+
+  const allPlayers = await Player.find({}).lean();
+  const playersByTeam = {};
+  for (const player of allPlayers) {
+    const teamId = player.team.toString();
+    if (!playersByTeam[teamId]) playersByTeam[teamId] = [];
+    playersByTeam[teamId].push(player);
+  }
+
+  const allPoints = await PlayerEventPoints.find({}).lean();
+  const pointsMap = {};
+  for (const p of allPoints) {
+    pointsMap[`${p.player}_${p.eventId}`] = p;
+  }
+
+  const bulkOps = [];
+
+  for (const fixture of fixtures) {
+    const eventId = fixture.eventId;
+    const homeTeamId = teamMap[fixture.homeTeam];
+    const awayTeamId = teamMap[fixture.awayTeam];
+
+    const homePlayers = playersByTeam[homeTeamId] || [];
+    const awayPlayers = playersByTeam[awayTeamId] || [];
+
+    let homeScoreH2H = 0;
+    let awayScoreH2H = 0;
+    const homeStats = [];
+    const awayStats = [];
+
+    for (const homePlayer of homePlayers) {
+      const homePoints = pointsMap[`${homePlayer._id}_${eventId}`];
+      if (!homePoints) continue;
+
+      const netHome = homePoints.eventPoints - homePoints.eventTransfersCost;
+
+      for (const awayPlayer of awayPlayers) {
+        if (homePlayer.position !== awayPlayer.position) continue;
+
+        const awayPoints = pointsMap[`${awayPlayer._id}_${eventId}`];
+        if (!awayPoints) continue;
+
+        const netAway = awayPoints.eventPoints - awayPoints.eventTransfersCost;
+
+        if (netHome > netAway) {
+          homeScoreH2H++;
+          homeStats.push({ ...homePlayer, goals: 1, eventPoints: homePoints.eventPoints, eventTransfersCost: homePoints.eventTransfersCost });
+          awayStats.push({ ...awayPlayer, goals: 0, eventPoints: awayPoints.eventPoints, eventTransfersCost: awayPoints.eventTransfersCost });
+        } else if (netAway > netHome) {
+          awayScoreH2H++;
+          homeStats.push({ ...homePlayer, goals: 0, eventPoints: homePoints.eventPoints, eventTransfersCost: homePoints.eventTransfersCost });
+          awayStats.push({ ...awayPlayer, goals: 1, eventPoints: awayPoints.eventPoints, eventTransfersCost: awayPoints.eventTransfersCost });
+        } else {
+          homeStats.push({ ...homePlayer, goals: 0, eventPoints: homePoints.eventPoints, eventTransfersCost: homePoints.eventTransfersCost });
+          awayStats.push({ ...awayPlayer, goals: 0, eventPoints: awayPoints.eventPoints, eventTransfersCost: awayPoints.eventTransfersCost });
+        }
+      }
+    }
+
+    const homeResult = {
+      event: eventId,
+      score: `${homeScoreH2H} : ${awayScoreH2H}`,
+      result:
+        homeScoreH2H > awayScoreH2H
+          ? "W"
+          : homeScoreH2H < awayScoreH2H
+          ? "L"
+          : "D",
+    };
+
+    const awayResult = {
+      event: eventId,
+      score: `${homeScoreH2H} : ${awayScoreH2H}`,
+      result:
+        awayScoreH2H > homeScoreH2H
+          ? "W"
+          : awayScoreH2H < homeScoreH2H
+          ? "L"
+          : "D",
+    };
+
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: fixture._id },
+        update: {
+          $set: {
+            homeScoreH2H,
+            awayScoreH2H,
+            homeStatsH2H: homeStats,
+            awayStatsH2H: awayStats,
+            homeResultH2H: homeResult,
+            awayResultH2H: awayResult,
+          },
+        },
+      },
+    });
+  }
+
+  if (bulkOps.length > 0) {
+    await Fixture.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "H2H scores calculated successfully" });
+});
+
+/*
 const calculateH2HScores = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({});
   for (const fixture of fixtures) {
@@ -367,8 +619,8 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
   }
 
   res.json({ message: "H2H scores calculated successfully" });
-});
-
+});*/
+/*
 const createPlayerFixtures = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({});
   for (const fixture of fixtures) {
@@ -399,13 +651,76 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   }
 
   res.json({ message: "Player fixtures successfully created"})
+});*/
+
+const createPlayerFixtures = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+
+  // Build teamId lookup map
+  const allTeams = await Team.find({});
+  const teamMap = {};
+  for (const team of allTeams) {
+    teamMap[team.id] = team._id;
+  }
+
+  // Preload all players and group them by teamId and position
+  const allPlayers = await Player.find({});
+  const playersByTeam = {};
+
+  for (const player of allPlayers) {
+    const teamId = player.team.toString();
+    if (!playersByTeam[teamId]) playersByTeam[teamId] = {};
+    if (!playersByTeam[teamId][player.position]) playersByTeam[teamId][player.position] = [];
+    playersByTeam[teamId][player.position].push(player);
+  }
+
+  const bulkOps = [];
+
+  for (const fixture of fixtures) {
+    const homeTeamId = teamMap[fixture.homeTeam];
+    const awayTeamId = teamMap[fixture.awayTeam];
+
+    if (!homeTeamId || !awayTeamId) continue;
+
+    const homePlayers = playersByTeam[homeTeamId?.toString()] || {};
+    const awayPlayers = playersByTeam[awayTeamId?.toString()] || {};
+
+    for (const position of Object.keys(homePlayers)) {
+      const homeGroup = homePlayers[position];
+      const awayGroup = awayPlayers[position] || [];
+
+      for (const homePlayer of homeGroup) {
+        for (const awayPlayer of awayGroup) {
+          bulkOps.push({
+            insertOne: {
+              document: {
+                eventId: fixture.eventId,
+                homePlayer: homePlayer._id,
+                awayPlayer: awayPlayer._id,
+                homeTeam: homePlayer.team,
+                awayTeam: awayPlayer.team,
+                position,
+              },
+            },
+          });
+        }
+      }
+    }
+  }
+
+  if (bulkOps.length > 0) {
+    await PlayerFixture.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "Player fixtures successfully created" });
 });
+
 
 const getPlayerFixtures = asyncHandler(async (req, res) => {
   const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer");
   res.json(playerFixtures);
 })
-
+/*
 const calculatePlayerFixScores = asyncHandler(async (req, res) => {const fixtures = await PlayerFixture.find({});
   for (const fixture of fixtures) {
     const homeResult = {};
@@ -444,8 +759,87 @@ const awayPlayerPoints = await PlayerEventPoints.findOne({
   }
                      
                                                                   res.json({ message: "Player fixture scores calculated successfully"})
-                                               })
+                                               })*/
 
+const calculatePlayerFixScores = asyncHandler(async (req, res) => {
+  // 1. Fetch all fixtures
+  const fixtures = await PlayerFixture.find({});
+
+  // 2. Build set of needed { player, eventId } pairs
+  const pointQueryKeys = [];
+  const fixtureKeyMap = {}; // To match keys back to fixtures
+
+  for (const fixture of fixtures) {
+    const { homePlayer, awayPlayer, eventId } = fixture;
+    const homeKey = `${homePlayer}_${eventId}`;
+    const awayKey = `${awayPlayer}_${eventId}`;
+    pointQueryKeys.push(homeKey, awayKey);
+    fixtureKeyMap[fixture._id] = {
+      fixture,
+      homeKey,
+      awayKey,
+    };
+  }
+
+  // 3. Fetch all PlayerEventPoints at once
+  const allPlayerEventPoints = await PlayerEventPoints.find({
+    $or: pointQueryKeys.map(key => {
+      const [player, eventId] = key.split("_");
+      return { player, eventId };
+    }),
+  });
+
+  // 4. Index PlayerEventPoints by `${player}_${eventId}`
+  const pointsMap = {};
+  for (const pep of allPlayerEventPoints) {
+    const key = `${pep.player}_${pep.eventId}`;
+    pointsMap[key] = pep;
+  }
+
+  // 5. Prepare bulk update ops
+  const bulkOps = [];
+
+  for (const [fixtureId, { fixture, homeKey, awayKey }] of Object.entries(fixtureKeyMap)) {
+    const homePoints = pointsMap[homeKey];
+    const awayPoints = pointsMap[awayKey];
+
+    if (!homePoints || !awayPoints) continue; // Skip if points missing
+
+    const netHome = homePoints.eventPoints - homePoints.eventTransfersCost;
+    const netAway = awayPoints.eventPoints - awayPoints.eventTransfersCost;
+
+    const result = {
+      homeResult: {
+        event: fixture.eventId,
+        score: `${netHome} : ${netAway}`,
+        result: netHome > netAway ? "W" : netHome < netAway ? "L" : "D",
+      },
+      awayResult: {
+        event: fixture.eventId,
+        score: `${netHome} : ${netAway}`,
+        result: netAway > netHome ? "W" : netAway < netHome ? "L" : "D",
+      },
+      homeScore: netHome,
+      awayScore: netAway,
+    };
+
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: fixtureId },
+        update: {
+          $set: result,
+        },
+      },
+    });
+  }
+
+  // 6. Apply all updates in one bulkWrite
+  if (bulkOps.length > 0) {
+    await PlayerFixture.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "Player fixture scores calculated successfully" });
+});
 
 
   

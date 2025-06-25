@@ -77,6 +77,39 @@ const getTeams = asyncHandler(async (req, res) => {
 
 const getTeamById = asyncHandler(async (req, res) => {
   const team = await Team.findById(req.params.id);
+  /*const liverpool = await Team.findOne({ name: "Liverpool" });
+  const villa = await Team.findOne({ name: "Aston Villa" });
+  const everton = await Team.findOne({ name: "Everton" });
+  const crystal = await Team.findOne({ name: "Crystal Palace"});
+  const castle = await Team.findOne({ name: "Newcastle" });
+
+  const city = await Team.findOne({ name: "Man City"});
+
+  const arsenal = await Team.findOne({ name: "Arsenal" });
+
+  const fixture = await Fixture.findOne({ homeTeam: everton.id, awayTeam: liverpool.id });
+ fixture.eventId = 15;
+  await fixture.save();
+  
+  const fixture3 = await Fixture.findOne({ homeTeam: villa.id, awayTeam: liverpool.id });
+  fixture3.eventId = 29;
+  await fixture3.save();
+  
+  const fixture2 = await Fixture.findOne({ homeTeam: castle.id, awayTeam: crystal.id });
+  fixture2.eventId = 29;
+  await fixture2.save();
+
+  const fixture1 = await Fixture.findOne({ homeTeam: arsenal.id, awayTeam: crystal.id });
+  fixture1.eventId = 34;
+  await fixture1.save();
+
+  const fixture4 = await Fixture.findOne({ homeTeam: city.id, awayTeam: villa.id });
+  fixture4.eventId = 34;
+  await fixture4.save();
+  
+
+   */
+  
 
   if (team) {
     res.json(team);

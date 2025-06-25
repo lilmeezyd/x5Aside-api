@@ -170,7 +170,7 @@ const getPlayerTable = asyncHandler(async (req, res) => {
   });
   res.json(sorted);
 });
-
+/*
 const updateClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.params.eventId);
   const fixtures = await Fixture.find({});
@@ -186,9 +186,11 @@ const updateClassicTable = asyncHandler(async (req, res) => {
     let P = 0;
     let GD = 0;
     const results = [];
+    console.log(row)
     for (const fixture of fixtures) {
       const homeId = await Team.findOne({id: fixture.homeTeam});
-      const awayId = await Team.findOne({id:fixture.awayTeam});      if ((row.team.toString() === homeId._id.toString()) || (row.team.toString() === awayId._id.toString())) {
+      const awayId = await Team.findOne({id:fixture.awayTeam});     
+      if ((row.team.toString() === homeId._id.toString()) || (row.team.toString() === awayId._id.toString())) {
         P++;
         // Update team stats if they're home
         if (row.team.toString() === homeId._id.toString())  {
@@ -226,6 +228,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
       }
       }
     }
+    console.log(P, W, D, L, GF, GA, GD, totalPoints,);
     row.played = P;
     row.win = W;
     row.draw = D;
@@ -239,8 +242,91 @@ const updateClassicTable = asyncHandler(async (req, res) => {
   }
 
   res.json({ message: "Classic table updated successfully" });
+});*/
+const updateClassicTable = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+  const teams = await Team.find({});
+  const teamIdMap = {};
+  for (const team of teams) {
+    teamIdMap[team.id] = team._id.toString();
+  }
+
+  // Group fixtures by team _id
+  const fixturesByTeam = {};
+  for (const fixture of fixtures) {
+    const homeTeamId = teamIdMap[fixture.homeTeam];
+    const awayTeamId = teamIdMap[fixture.awayTeam];
+
+    if (!fixturesByTeam[homeTeamId]) fixturesByTeam[homeTeamId] = [];
+    if (!fixturesByTeam[awayTeamId]) fixturesByTeam[awayTeamId] = [];
+
+    fixturesByTeam[homeTeamId].push({ fixture, isHome: true });
+    fixturesByTeam[awayTeamId].push({ fixture, isHome: false });
+  }
+
+  const table = await TeamClassic.find({});
+  const bulkOps = [];
+
+  for (const row of table) {
+    const tid = row.team.toString();
+    const relevant = fixturesByTeam[tid] || [];
+
+    let P = 0, W = 0, D = 0, L = 0, GF = 0, GA = 0, GD = 0, points = 0;
+    const results = [];
+
+    for (const { fixture, isHome } of relevant) {
+      const homeScore = fixture.homeScoreClassic;
+      const awayScore = fixture.awayScoreClassic;
+      const result = isHome ? fixture.homeResultClassic : fixture.awayResultClassic;
+
+      P++;
+      results.push(result);
+
+      if (isHome) {
+        GF += homeScore;
+        GA += awayScore;
+        GD += homeScore - awayScore;
+        if (homeScore > awayScore) W++, points += 3;
+        else if (homeScore < awayScore) L++;
+        else D++, points += 1;
+      } else {
+        GF += awayScore;
+        GA += homeScore;
+        GD += awayScore - homeScore;
+        if (awayScore > homeScore) W++, points += 3;
+        else if (awayScore < homeScore) L++;
+        else D++, points += 1;
+      }
+    }
+
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: row._id },
+        update: {
+          $set: {
+            played: P,
+            win: W,
+            draw: D,
+            loss: L,
+            goalsFor: GF,
+            goalsAgainst: GA,
+            goalDifference: GD,
+            points,
+            result: results,
+          },
+        },
+      },
+    });
+  }
+
+  if (bulkOps.length > 0) {
+    await TeamClassic.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "Classic table updated successfully" });
 });
 
+/*
 const updateH2HTable = asyncHandler(async (req, res) => {
   {
     const eventId = parseInt(req.params.eventId);
@@ -311,9 +397,90 @@ const updateH2HTable = asyncHandler(async (req, res) => {
 
     res.json({ message: "H2H table updated successfully" });
   }
+});*/
+const updateH2HTable = asyncHandler(async (req, res) => {
+  const fixtures = await Fixture.find({});
+  const teams = await Team.find({});
+  const teamIdMap = {};
+  for (const team of teams) {
+    teamIdMap[team.id] = team._id.toString();
+  }
+
+  // Group fixtures by teamId for quick access
+  const fixturesByTeam = {};
+  for (const fixture of fixtures) {
+    const homeTeamId = teamIdMap[fixture.homeTeam];
+    const awayTeamId = teamIdMap[fixture.awayTeam];
+
+    if (!fixturesByTeam[homeTeamId]) fixturesByTeam[homeTeamId] = [];
+    if (!fixturesByTeam[awayTeamId]) fixturesByTeam[awayTeamId] = [];
+
+    fixturesByTeam[homeTeamId].push({ fixture, isHome: true });
+    fixturesByTeam[awayTeamId].push({ fixture, isHome: false });
+  }
+
+  const table = await TeamH2H.find({});
+  const bulkOps = [];
+
+  for (const row of table) {
+    const tid = row.team.toString();
+    const relevant = fixturesByTeam[tid] || [];
+
+    let P = 0, W = 0, D = 0, L = 0, GF = 0, GA = 0, GD = 0, points = 0;
+    const results = [];
+
+    for (const { fixture, isHome } of relevant) {
+      const homeScore = fixture.homeScoreH2H;
+      const awayScore = fixture.awayScoreH2H;
+      const result = isHome ? fixture.homeResultH2H : fixture.awayResultH2H;
+
+      P++;
+      results.push(result);
+      if (isHome) {
+        GF += homeScore;
+        GA += awayScore;
+        GD += homeScore - awayScore;
+        if (homeScore > awayScore) W++, points += 3;
+        else if (homeScore < awayScore) L++;
+        else D++, points += 1;
+      } else {
+        GF += awayScore;
+        GA += homeScore;
+        GD += awayScore - homeScore;
+        if (awayScore > homeScore) W++, points += 3;
+        else if (awayScore < homeScore) L++;
+        else D++, points += 1;
+      }
+    }
+
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: row._id },
+        update: {
+          $set: {
+            played: P,
+            win: W,
+            draw: D,
+            loss: L,
+            goalsFor: GF,
+            goalsAgainst: GA,
+            goalDifference: GD,
+            points,
+            result: results,
+          },
+        },
+      },
+    });
+  }
+
+  if (bulkOps.length > 0) {
+    await TeamH2H.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "H2H table updated successfully" });
 });
 
-const updatePlayerTable = asyncHandler(async (req, res) => {
+/*const updatePlayerTable = asyncHandler(async (req, res) => {
   const fixtures = await PlayerFixture.find({});
   const table = await PlayerTable.find({});
 
@@ -376,7 +543,100 @@ const updatePlayerTable = asyncHandler(async (req, res) => {
   }
 
   res.json({ message: "Players table updated successfully" });
+});*/
+
+const updatePlayerTable = asyncHandler(async (req, res) => {
+  const fixtures = await PlayerFixture.find({});
+  const table = await PlayerTable.find({});
+
+  // 1. Group fixtures by player ID
+  const playerFixturesMap = {};
+
+  for (const fixture of fixtures) {
+    const homeId = fixture.homePlayer.toString();
+    const awayId = fixture.awayPlayer.toString();
+
+    if (!playerFixturesMap[homeId]) playerFixturesMap[homeId] = [];
+    if (!playerFixturesMap[awayId]) playerFixturesMap[awayId] = [];
+
+    playerFixturesMap[homeId].push({
+      isHome: true,
+      score: fixture.homeScore,
+      oppScore: fixture.awayScore,
+      result: fixture.homeResult,
+    });
+
+    playerFixturesMap[awayId].push({
+      isHome: false,
+      score: fixture.awayScore,
+      oppScore: fixture.homeScore,
+      result: fixture.awayResult,
+    });
+  }
+
+  // 2. Bulk update player rows
+  const bulkOps = [];
+
+  for (const row of table) {
+    const pid = row.player.toString();
+    const data = playerFixturesMap[pid] || [];
+
+    let totalPoints = 0;
+    let GF = 0;
+    let GA = 0;
+    let W = 0;
+    let D = 0;
+    let L = 0;
+    let P = 0;
+    let GD = 0;
+    const results = [];
+
+    for (const match of data) {
+      const { score, oppScore, result } = match;
+      P++;
+      GF += score;
+      GA += oppScore;
+      GD += score - oppScore;
+      results.push(result);
+
+      if (score > oppScore) {
+        W++;
+        totalPoints += 3;
+      } else if (score < oppScore) {
+        L++;
+      } else {
+        D++;
+        totalPoints += 1;
+      }
+    }
+
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: row._id },
+        update: {
+          $set: {
+            played: P,
+            win: W,
+            draw: D,
+            loss: L,
+            pointsFor: GF,
+            pointsAgainst: GA,
+            pointsDifference: GD,
+            points: totalPoints,
+            result: results,
+          },
+        },
+      },
+    });
+  }
+
+  if (bulkOps.length > 0) {
+    await PlayerTable.bulkWrite(bulkOps);
+  }
+
+  res.json({ message: "Players table updated successfully" });
 });
+
 
 export {
   getClassicTable,

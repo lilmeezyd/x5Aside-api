@@ -8,4 +8,5 @@ const playerEventPointsSchema = new mongoose.Schema({
   totalPoints: Number,
   overallRank: Number
 });
+playerEventPointsSchema.index({ player: 1, eventId: 1 }, { unique: true });
 export default mongoose.model("PlayerEventPoints", playerEventPointsSchema);

@@ -21,7 +21,12 @@ isPlayed: {
  },
 { timestamps: true },
 );
+playerFixtureSchema.index(
+  { eventId: 1, homePlayer: 1, awayPlayer: 1, position: 1 },
+  { unique: true }
+);
 
 const playerFixture = mongoose.model("PlayerFixture", playerFixtureSchema);
+
 
 export default playerFixture;
