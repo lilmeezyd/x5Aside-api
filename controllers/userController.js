@@ -1,10 +1,12 @@
-import User from "../models/userModel.js";
+import userSchema from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
+import { getModel } from "../config/db.js";
 
 const register = asyncHandler(async (req, res) => {
-  const { username, password, isAdmin } = req.body;
+  const { username, password } = req.body;
+  const User = await getModel("Authentication", "User", userSchema);
 
   const existingUser = await User.findOne({ username });
   if (existingUser) {
@@ -14,7 +16,6 @@ const register = asyncHandler(async (req, res) => {
   const user = new User({
     username,
     password: await bcrypt.hash(password, 10),
-    isAdmin,
   });
   await user.save();
   res.status(201).json({ token: generateToken(res, user._id) });
@@ -22,6 +23,7 @@ const register = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
+  const User = await getModel("Authentication", "User", userSchema);
   const user = await User.findOne({ username });
   if (user && (await bcrypt.compare(password, user.password))) {
     res.json({ token: generateToken(res, user._id) });

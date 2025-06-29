@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { errorHandler } from "./middleware/errorMiddleware.js";
-import connectDB from "./config/db.js";
+import {connectDb} from "./config/db.js";
 import cookieParser from "cookie-parser";
 
 
@@ -22,8 +22,8 @@ app.use(
 app.get('/', (req, res) => {
   res.send('x5Aside API is running...');
 });
-if (process.env.NODE_ENV !== 'test')
-{connectDB()}
+/*if (process.env.NODE_ENV !== 'test')
+{connectDb()}*/
 
 import userRoutes from './routes/userRoutes.js';
 import fixtureRoutes from './routes/fixtureRoutes.js';
