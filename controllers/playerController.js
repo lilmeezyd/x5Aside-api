@@ -1,15 +1,21 @@
-import Player from "../models/playerModel.js";
+import playerSchema from "../models/playerModel.js";
 import asyncHandler from "express-async-handler";
-import PlayerTable from "../models/playerTableModel.js";
-import Fixture from "../models/fixtureModel.js";
+import playerTableSchema from "../models/playerTableModel.js";
+import fixtureSchema from "../models/fixtureModel.js";
 import { fetchData } from "../services/fetchManagerData.js";
-import PlayerEventPoints from "../models/playerPointsModel.js";
-import Team from "../models/teamModel.js";
-import Leaderboard from "../models/leaderboardModel.js";
-import PlayerFixture from "../models/playerFixtureModel.js";
+import playerEventPointsSchema from "../models/playerPointsModel.js";
+import teamSchema from "../models/teamModel.js";
+import leaderboardSchema from "../models/leaderboardModel.js";
+import playerFixtureSchema from "../models/playerFixtureModel.js";
 import axios from "axios";
+import { getModel } from "../config/db.js";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  
   if (!fplId || !position || !team) {
     res.status(400);
     console.log("Invalid data");
@@ -57,10 +63,20 @@ const createPlayer = asyncHandler(async (req, res) => {
   res.json({ manager: player.manager });
 });
 const getPlayers = asyncHandler(async (req, res) => {
+  const dbName =req.query.dbName || req.user?.dbName || "";
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
   const players = await Player.find({}).populate("team");
   res.json(players);
 });
 const deleteAllPlayers = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
   await Player.deleteMany({});
   await PlayerEventPoints.deleteMany({});
   await PlayerFixture.deleteMany({});
@@ -76,6 +92,14 @@ const deleteAllPlayers = asyncHandler(async (req, res) => {
 });
 
 const deletePlayer = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema); 
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  
   const player = await Player.findById(req.params.id);
   if (player) {
     await Player.deleteOne({ _id: player._id }); // Use deleteOne instead of remove

@@ -1,13 +1,18 @@
 import asyncHandler from "express-async-handler";
-import Team from "../models/teamModel.js";
-import TeamClassic from "../models/teamClassicModel.js";
-import TeamH2H from "../models/teamH2HModel.js";
-import PlayerTable from "../models/playerTableModel.js";
-import PlayerFixture from "../models/playerFixtureModel.js";
-import Fixture from "../models/fixtureModel.js";
+import teamSchema from "../models/teamModel.js";
+import teamClassicSchema from "../models/teamClassicModel.js";
+import teamH2HSchema from "../models/teamH2HModel.js";
+import playerTableSchema from "../models/playerTableModel.js";
+import playerFixtureSchema from "../models/playerFixtureModel.js";
+import fixtureSchema from "../models/fixtureModel.js";
+import { getModel } from "../config/db.js";
 
 const getClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
+  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  
   const table = await TeamClassic.find().populate("team").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -84,6 +89,10 @@ const getClassicTable = asyncHandler(async (req, res) => {
 
 const getH2HTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  
   const table = await TeamH2H.find().populate("team").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -160,6 +169,10 @@ const getH2HTable = asyncHandler(async (req, res) => {
 
 const getPlayerTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
+  const dbName = req.query.dbName || req.user?. dbName || "";
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
+  
   const table = await PlayerTable.find().populate("player").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -244,6 +257,12 @@ const updateClassicTable = asyncHandler(async (req, res) => {
   res.json({ message: "Classic table updated successfully" });
 });*/
 const updateClassicTable = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const eventId = parseInt(req.params.eventId);
+  
   const fixtures = await Fixture.find({});
   const teams = await Team.find({});
   const teamIdMap = {};
@@ -399,6 +418,11 @@ const updateH2HTable = asyncHandler(async (req, res) => {
   }
 });*/
 const updateH2HTable = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
+  const eventId = parseInt(req.params.eventId);
   const fixtures = await Fixture.find({});
   const teams = await Team.find({});
   const teamIdMap = {};
@@ -546,6 +570,15 @@ const updateH2HTable = asyncHandler(async (req, res) => {
 });*/
 
 const updatePlayerTable = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  
+  
+  const eventId = parseInt(req.params.eventId);
   const fixtures = await PlayerFixture.find({});
   const table = await PlayerTable.find({});
 

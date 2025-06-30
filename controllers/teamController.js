@@ -1,17 +1,21 @@
 import asyncHandler from "express-async-handler";
-import TeamClassic from "../models/teamClassicModel.js";
-import TeamH2H from "../models/teamH2HModel.js";
-import Team from "../models/teamModel.js";
-import Player from "../models/playerModel.js";
-import Fixture from "../models/fixtureModel.js";
-import PlayerEventPoints from "../models/playerPointsModel.js";
-import PlayerFixture from "../models/playerFixtureModel.js";
+import teamClassicSchema from "../models/teamClassicModel.js";
+import teamH2HSchema from "../models/teamH2HModel.js";
+import teamSchema from "../models/teamModel.js";
+import playerSchema from "../models/playerModel.js";
+import fixtureSchema from "../models/fixtureModel.js";
+import playerEventPointsSchema from "../models/playerPointsModel.js";
+import playerFixtureSchema from "../models/playerFixtureModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 import { getModel } from "../config/db.js"
 
 const createTeam = asyncHandler(async (req, res) => {
-  const teams = await fetchAndStoreFPLTeams();
+  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const teams = await fetchAndStoreFPLTeams(dbName);
   //fetchAndStoreFPLTeams();
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
+  
 
   if (!Array.isArray(teams)) {
     res.status(500);
@@ -71,12 +75,15 @@ const createTeam = asyncHandler(async (req, res) => {
 });
 
 const getTeams = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const Team = await getModel(dbName, "Team", teamSchema);
   const teams = await Team.find({}).populate('players');
-  console.log(teams[0]);
   res.json(teams);
 });
 
 const getTeamById = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const Team = await getModel(dbName, "Team", teamSchema)
   const team = await Team.findById(req.params.id);
   /*const liverpool = await Team.findOne({ name: "Liverpool" });
   const villa = await Team.findOne({ name: "Aston Villa" });
@@ -121,6 +128,15 @@ const getTeamById = asyncHandler(async (req, res) => {
 });
 
 const deleteAllTeams = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  
   await Team.deleteMany({});
   await Fixture.deleteMany({});
   await TeamClassic.deleteMany({});
@@ -132,7 +148,10 @@ const deleteAllTeams = asyncHandler(async (req, res) => {
 });
 const deleteTeam = asyncHandler(async (req, res) => {
   const teamId = req.params.id;
-
+  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const Team = await getModel(dbName, "Team", teamSchema)
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const team = await Team.findById(teamId);
 
   if (team) {

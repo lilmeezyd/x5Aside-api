@@ -16,7 +16,6 @@ import mongoose from "mongoose";
 
 const connections = {};
 const baseUri = process.env.MONGO_URI;
-console.log(process.env.MONGO_URI);
 
 const connectDb = async (dbName) => {
   if (connections[dbName]) return connections[dbName];

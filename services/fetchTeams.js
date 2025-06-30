@@ -1,7 +1,10 @@
 import axios from "axios";
-import Team from "../models/teamModel.js";
+import teamSchema from "../models/teamModel.js";
+import { getModel } from "../utils/db.js";
 
-export const fetchAndStoreFPLTeams = async () => {
+export const fetchAndStoreFPLTeams = async (dbName) => {
+
+  const Team = await getModel(dbName, "Team", teamSchema)
   try {
     const { data } = await axios.get(
       "https://fantasy.premierleague.com/api/bootstrap-static/"
