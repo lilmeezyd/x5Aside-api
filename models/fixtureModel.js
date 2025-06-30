@@ -25,7 +25,7 @@ const fixtureSchema = new mongoose.Schema({
    awayResultH2H: { },
   isPlayed: { type: Boolean, default: false }
 }, { timestamps: true });
+/*
+const Fixture = mongoose.model("Fixture", fixtureSchema);*/
 
-const Fixture = mongoose.model("Fixture", fixtureSchema);
-
-export default Fixture;
+export default fixtureSchema;

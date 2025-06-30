@@ -12,7 +12,7 @@ const playerTableSchema = new mongoose.Schema({
   points: { type: Number, default: 0 },
       result: [],
 }, { timestamps: true });
+/*
+const PlayerTable = mongoose.model("PlayerTable", playerTableSchema);*/
 
-const PlayerTable = mongoose.model("PlayerTable", playerTableSchema);
-
-export default PlayerTable;
+export default playerTableSchema;

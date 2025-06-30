@@ -9,4 +9,5 @@ const playerEventPointsSchema = new mongoose.Schema({
   overallRank: Number
 });
 playerEventPointsSchema.index({ player: 1, eventId: 1 }, { unique: true });
-export default mongoose.model("PlayerEventPoints", playerEventPointsSchema);
+/*export default mongoose.model("PlayerEventPoints", playerEventPointsSchema);*/
+export default playerEventPointsSchema;

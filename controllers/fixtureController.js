@@ -6,6 +6,7 @@ import Player from "../models/playerModel.js";
 import PlayerFixture from "../models/playerFixtureModel.js";
 import scoreFixtures from "../services/scoreFixtures.js";
 import { fetchFixtures } from "../services/fetchFixtures.js";
+import { getModel } from "../config/db.js"
 
 const createFixtures = asyncHandler(async (req, res) => {
   await Fixture.deleteMany({});

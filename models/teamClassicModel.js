@@ -13,4 +13,6 @@ const teamClassicSchema = new mongoose.Schema({
   result: [
   ],
 },{timestamps: true});
-export default mongoose.model("TeamClassic", teamClassicSchema);
+/*export default mongoose.model("TeamClassic", teamClassicSchema);*/
+
+export default teamClassicSchema;

@@ -17,6 +17,7 @@ const register = asyncHandler(async (req, res) => {
     username,
     password: await bcrypt.hash(password, 10),
   });
+  console.log(user)
   await user.save();
   res.status(201).json({ token: generateToken(res, user._id) });
 });
@@ -25,6 +26,7 @@ const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
   const User = await getModel("Authentication", "User", userSchema);
   const user = await User.findOne({ username });
+  console.log(user);
   if (user && (await bcrypt.compare(password, user.password))) {
     res.json({ token: generateToken(res, user._id) });
   } else {

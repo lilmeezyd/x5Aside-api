@@ -16,7 +16,7 @@ const teamH2HSchema = new mongoose.Schema(
   
   { timestamps: true },
 );
+/*
+const TeamH2H = mongoose.model("TeamH2H", teamH2HSchema);*/
 
-const TeamH2H = mongoose.model("TeamH2H", teamH2HSchema);
-
-export default TeamH2H;
+export default teamH2HSchema;

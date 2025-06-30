@@ -6,6 +6,6 @@ const teamSchema = new mongoose.Schema({
   short_name: String,
   players: [{ type:  mongoose.Schema.Types.ObjectId, ref: "Player"
 }]}, { timestamps: true });
-const Team = mongoose.model("Team", teamSchema);
-
-export default Team;
+/*const Team = mongoose.model("Team", teamSchema);
+*/
+export default teamSchema;

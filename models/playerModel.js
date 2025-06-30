@@ -11,7 +11,7 @@ const playerSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+/*
+const Player = mongoose.model("Player", playerSchema);*/
 
-const Player = mongoose.model("Player", playerSchema);
-
-export default Player;
+export default playerSchema;

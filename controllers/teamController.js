@@ -7,6 +7,7 @@ import Fixture from "../models/fixtureModel.js";
 import PlayerEventPoints from "../models/playerPointsModel.js";
 import PlayerFixture from "../models/playerFixtureModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
+import { getModel } from "../config/db.js"
 
 const createTeam = asyncHandler(async (req, res) => {
   const teams = await fetchAndStoreFPLTeams();
