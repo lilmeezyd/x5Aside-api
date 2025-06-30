@@ -119,6 +119,9 @@ const deletePlayer = asyncHandler(async (req, res) => {
 });
 
 const updatePlayer = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Player = await getModel(dbName, "Player", playerSchema);
+  
   const updatedPlayer = await Player.updateOne(
     { _id: req.params.id },
     req.body,
@@ -126,9 +129,11 @@ const updatePlayer = asyncHandler(async (req, res) => {
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
 const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   try {
     const players = await Player.find({});
-    console.log(players[0])
 
     for (const player of players) {
       const { fplId, _id: playerId } = player;
@@ -174,6 +179,8 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   }
 });
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   try {
     const { playerId } = req.params;
     const playerEventPoints = await PlayerEventPoints.find({
@@ -187,6 +194,10 @@ const getPlayerEventPoints = asyncHandler(async (req, res) => {
 });
 
 const updateLeadingScorers = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
+  
   const fixtures = await Fixture.find({});
   const goalsScorers = [];
   for (const fixture of fixtures) {
@@ -223,6 +234,8 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
   }
 });
 const getLeadingScorers = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.user?.dbName || "";
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const leadingScorers = await Leaderboard.find({}).populate("player");
   res.json(leadingScorers);
 });

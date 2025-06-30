@@ -1,6 +1,7 @@
 import axios from "axios";
 import teamSchema from "../models/teamModel.js";
-import { getModel } from "../utils/db.js";
+import { getModel } from 
+  "../config/db.js";
 
 export const fetchAndStoreFPLTeams = async (dbName) => {
 

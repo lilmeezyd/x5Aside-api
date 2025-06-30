@@ -5,6 +5,7 @@ import teamH2HSchema from "../models/teamH2HModel.js";
 import playerTableSchema from "../models/playerTableModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
+import playerSchema from "../models/playerModel.js";
 import { getModel } from "../config/db.js";
 
 const getClassicTable = asyncHandler(async (req, res) => {
@@ -171,8 +172,7 @@ const getPlayerTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
   const dbName = req.query.dbName || req.user?. dbName || "";
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
-  const Player = await getModel(dbName, "Player", playerSchema);
-  
+const Player = await getModel(dbName, "Player", playerSchema);
   const table = await PlayerTable.find().populate("player").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;

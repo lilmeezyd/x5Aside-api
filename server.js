@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { validateDbName } from "./middleware/validateDb.js"
 import { errorHandler } from "./middleware/errorMiddleware.js";
 import {connectDb} from "./config/db.js";
 import cookieParser from "cookie-parser";
@@ -18,6 +19,9 @@ app.use(
     origin: "*",
   })
 );
+app.use(validateDbName);
+
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.send('x5Aside API is running...');

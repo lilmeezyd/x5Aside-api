@@ -1,8 +1,9 @@
 // services/fetchFixtures.js
 import axios from "axios";
-import Fixture from "../models/fixtureModel.js";
+import fixtureSchema from "../models/fixtureModel.js";
 
-export const fetchFixtures = async () => {
+export const fetchFixtures = async (dbName) => {
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   try {
     const { data } = await axios.get("https://fantasy.premierleague.com/api/fixtures/");
 
