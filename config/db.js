@@ -16,12 +16,14 @@ import mongoose from "mongoose";
 
 const connections = {};
 const baseUri = process.env.MONGO_URI;
+console.log(process.env.MONGO_URI);
 
 const connectDb = async (dbName) => {
   if (connections[dbName]) return connections[dbName];
-
+//console.
   const fullUri = `${baseUri}${dbName}?retryWrites=true&w=majority`;
-  const conn = mongoose.createConnection(fullUri, {
+  //console.log(fullUri);
+  const conn = await mongoose.createConnection(fullUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
