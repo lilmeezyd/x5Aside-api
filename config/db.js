@@ -21,11 +21,12 @@ const connectDb = async (dbName) => {
   if (connections[dbName]) return connections[dbName];
 //console.
   const fullUri = `${baseUri}${dbName}?retryWrites=true&w=majority`;
-  //console.log(fullUri);
+  console.log(fullUri);
   const conn = await mongoose.createConnection(fullUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
+  console.log(`MongoDB connected: ${conn.host}`);
 
   connections[dbName] = conn;
   return conn;
