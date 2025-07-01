@@ -19,7 +19,7 @@ app.use(
     origin: "*",
   })
 );
-app.use(validateDbName);
+//app.use(validateDbName);
 
 
 // Root route for testing

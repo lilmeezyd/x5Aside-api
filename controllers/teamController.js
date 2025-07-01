@@ -10,8 +10,10 @@ import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 import { getModel } from "../config/db.js"
 
 const createTeam = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || ""; 
+  console.log(dbName)
   const teams = await fetchAndStoreFPLTeams(dbName);
+  
   //fetchAndStoreFPLTeams();
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
@@ -75,8 +77,9 @@ const createTeam = asyncHandler(async (req, res) => {
 });
 
 const getTeams = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || ""; 
   const Team = await getModel(dbName, "Team", teamSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
   const teams = await Team.find({}).populate('players');
   res.json(teams);
 });
