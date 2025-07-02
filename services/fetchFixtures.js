@@ -1,6 +1,7 @@
 // services/fetchFixtures.js
 import axios from "axios";
 import fixtureSchema from "../models/fixtureModel.js";
+import { getModel } from "../config/db.js";
 
 export const fetchFixtures = async (dbName) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);

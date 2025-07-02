@@ -10,7 +10,7 @@ import { getModel } from "../config/db.js";
 
 const getClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
-  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || ""; 
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   
@@ -90,7 +90,7 @@ const getClassicTable = asyncHandler(async (req, res) => {
 
 const getH2HTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   
@@ -170,7 +170,7 @@ const getH2HTable = asyncHandler(async (req, res) => {
 
 const getPlayerTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
-  const dbName = req.query.dbName || req.user?. dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
 const Player = await getModel(dbName, "Player", playerSchema);
   const table = await PlayerTable.find().populate("player").lean();
@@ -257,7 +257,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
   res.json({ message: "Classic table updated successfully" });
 });*/
 const updateClassicTable = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
@@ -418,7 +418,7 @@ const updateH2HTable = asyncHandler(async (req, res) => {
   }
 });*/
 const updateH2HTable = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
@@ -570,7 +570,7 @@ const updateH2HTable = asyncHandler(async (req, res) => {
 });*/
 
 const updatePlayerTable = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Team = await getModel(dbName, "Team", teamSchema);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);

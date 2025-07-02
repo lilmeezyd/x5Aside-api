@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const playerSchema = new mongoose.Schema(
   {
-    xHandle: { type: String, unique: true},
+    xHandle: String,
     fplId: { type: Number, unique: true}, 
     position: { type: String, enum: ["Captain", "Ace", "Forward", "Midfielder", "Defender"] },
     teamName: String,

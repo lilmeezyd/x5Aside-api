@@ -85,7 +85,7 @@ const getTeams = asyncHandler(async (req, res) => {
 });
 
 const getTeamById = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || ""; 
   const Team = await getModel(dbName, "Team", teamSchema)
   const team = await Team.findById(req.params.id);
   /*const liverpool = await Team.findOne({ name: "Liverpool" });
@@ -131,7 +131,7 @@ const getTeamById = asyncHandler(async (req, res) => {
 });
 
 const deleteAllTeams = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || ""; 
   const Team = await getModel(dbName, "Team", teamSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
@@ -151,7 +151,7 @@ const deleteAllTeams = asyncHandler(async (req, res) => {
 });
 const deleteTeam = asyncHandler(async (req, res) => {
   const teamId = req.params.id;
-  const dbName = req.query.dbName || req.user?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || ""; 
   const Team = await getModel(dbName, "Team", teamSchema)
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);

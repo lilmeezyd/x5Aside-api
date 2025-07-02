@@ -9,10 +9,12 @@ import leaderboardSchema from "../models/leaderboardModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import axios from "axios";
 import { getModel } from "../config/db.js";
+
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
+  console.log(Player);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   
@@ -35,7 +37,6 @@ const createPlayer = asyncHandler(async (req, res) => {
   }
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
-  console.log(data)
   if (team === null) {
     res.status(400);
     throw new Error("No team added");
@@ -63,14 +64,14 @@ const createPlayer = asyncHandler(async (req, res) => {
   res.json({ manager: player.manager });
 });
 const getPlayers = asyncHandler(async (req, res) => {
-  const dbName =req.query.dbName || req.user?.dbName || "";
+  const dbName =req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const players = await Player.find({}).populate("team");
   res.json(players);
 });
 const deleteAllPlayers = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
@@ -92,7 +93,7 @@ const deleteAllPlayers = asyncHandler(async (req, res) => {
 });
 
 const deletePlayer = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
@@ -119,7 +120,7 @@ const deletePlayer = asyncHandler(async (req, res) => {
 });
 
 const updatePlayer = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
   
   const updatedPlayer = await Player.updateOne(
@@ -129,7 +130,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
 const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   try {
@@ -179,7 +180,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   }
 });
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   try {
     const { playerId } = req.params;
@@ -194,7 +195,7 @@ const getPlayerEventPoints = asyncHandler(async (req, res) => {
 });
 
 const updateLeadingScorers = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   
@@ -234,7 +235,7 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
   }
 });
 const getLeadingScorers = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const leadingScorers = await Leaderboard.find({}).populate("player");
   res.json(leadingScorers);

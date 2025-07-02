@@ -9,7 +9,7 @@ import { fetchFixtures } from "../services/fetchFixtures.js";
 import { getModel } from "../config/db.js"
 
 const createFixtures = asyncHandler(async (req, res) => {
- const dbName = req.query.dbName || req.user?.dbName || "";
+ const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
  await Fixture.deleteMany({});
   const fixtures = await fetchFixtures(dbName);
@@ -17,7 +17,7 @@ const createFixtures = asyncHandler(async (req, res) => {
 });
 
 const getFixtures = asyncHandler(async (req, res) => {
- const dbName = req.query.dbName || req.user?.dbName || "";
+ const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const fixtures = await Fixture.find({}).lean();
@@ -38,7 +38,7 @@ const getFixtures = asyncHandler(async (req, res) => {
 });
 
 const getFixtureById = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const fixtures = await Fixture.findById(req.params.id);
@@ -67,7 +67,7 @@ const getFixtureById = asyncHandler(async (req, res) => {
 
 const scoreFixtureById = async (req, res) => {
   const { fixtureId } = req.params;
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
@@ -116,7 +116,7 @@ const scoreFixtureById = async (req, res) => {
 };
 
 const deleteAllFixtures = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
   await Fixture.deleteMany({});
@@ -260,7 +260,7 @@ homeResult.event = fixture.eventId;
   res.json({ message: "Classic scores calculated successfully" })
   });*/
 const calculateClassicScores = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
@@ -407,7 +407,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   res.json({ message: "Classic scores calculated successfully" });
 });
 const calculateH2HScores = asyncHandler(async (req, res) => {
- const dbName = req.query.dbName || req.user?.dbName || "";
+ const dbName = req.query.dbName || req.body?.dbName || "";
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
@@ -680,7 +680,7 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
 });*/
 
 const createPlayerFixtures = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
@@ -750,7 +750,7 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
 
 
 const getPlayerFixtures = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
   
   const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer");
@@ -798,7 +798,7 @@ const awayPlayerPoints = await PlayerEventPoints.findOne({
                                                })*/
 
 const calculatePlayerFixScores = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.user?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const eventId = parseInt(req.params.eventId);
