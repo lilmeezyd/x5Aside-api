@@ -86,9 +86,12 @@ const getTeams = asyncHandler(async (req, res) => {
 
 const getTeamById = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName || ""; 
-  const Team = await getModel(dbName, "Team", teamSchema)
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  //console.log(Fixture)
+  
   const team = await Team.findById(req.params.id);
-  /*const liverpool = await Team.findOne({ name: "Liverpool" });
+  const liverpool = await Team.findOne({ name: "Liverpool" });
   const villa = await Team.findOne({ name: "Aston Villa" });
   const everton = await Team.findOne({ name: "Everton" });
   const crystal = await Team.findOne({ name: "Crystal Palace"});
@@ -99,6 +102,7 @@ const getTeamById = asyncHandler(async (req, res) => {
   const arsenal = await Team.findOne({ name: "Arsenal" });
 
   const fixture = await Fixture.findOne({ homeTeam: everton.id, awayTeam: liverpool.id });
+  //console.log(fixture)
  fixture.eventId = 15;
   await fixture.save();
   
@@ -119,7 +123,7 @@ const getTeamById = asyncHandler(async (req, res) => {
   await fixture4.save();
   
 
-   */
+   
   
 
   if (team) {

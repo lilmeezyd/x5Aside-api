@@ -685,9 +685,10 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
-  
+  await PlayerFixture.deleteMany({});
   const eventId = parseInt(req.params.eventId);
   const fixtures = await Fixture.find({});
+  
 
   // Build teamId lookup map
   const allTeams = await Team.find({});
