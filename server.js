@@ -34,13 +34,14 @@ import fixtureRoutes from './routes/fixtureRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import tableRoutes from './routes/tableRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
 
 app.use("/api/users", userRoutes);
 app.use("/api/fixtures", fixtureRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/players", playerRoutes);
 app.use("/api/tables", tableRoutes);
-
+app.use("/api/events", eventRoutes);
 
 app.use(errorHandler)
 const PORT = parseInt(process.env.PORT) || 5000;
