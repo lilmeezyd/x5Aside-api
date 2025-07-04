@@ -12,7 +12,7 @@ const pointsTable = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
 export const calculateF1perGW = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body.dbName || "";
-
+console.log(dbName);
   const Team = await getModel(dbName, 'Team', teamSchema);
   const Player = await getModel(dbName, 'Player', playerSchema);
   const PlayerEventPoints = await getModel(dbName, 'PlayerEventPoints', playerEventPointsSchema);
@@ -90,7 +90,7 @@ export const calculateF1perGW = asyncHandler(async (req, res) => {
 
 export const getF1Standings = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body.dbName || "";
-
+console.log(dbName);
   const FormulaOneTotal = await getModel(dbName, 'FormulaOneTotal', formulaOneTotalSchema);
 
   const standings = await FormulaOneTotal.find({})
@@ -101,7 +101,7 @@ export const getF1Standings = asyncHandler(async (req, res) => {
 });
 
 export const getF1ByEvent = asyncHandler(async (req, res) => {
-app.use("/api/f1", formulaOneRoutes);
+  const dbName = req.query.dbName || req.body.dbName || "";
   const eventId = parseInt(req.params.eventId);
 
   if (isNaN(eventId)) {

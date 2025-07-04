@@ -22,7 +22,7 @@ const connectDb = async (dbName) => {
 //console.
   const fullUri = `${baseUri}${dbName}?retryWrites=true&w=majority`;
   console.log(fullUri);
-  const conn = await mongoose.createConnection(fullUri, {
+  const conn = mongoose.createConnection(fullUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });

@@ -235,8 +235,11 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
   }
 });
 const getLeadingScorers = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
-  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema); 
+  const Player = await getModel(dbName, "Player", playerSchema); 
+  const Team = await getModel(dbName, "Team", teamSchema);
+  
   const leadingScorers = await Leaderboard.find({}).populate("player");
   res.json(leadingScorers);
 });
