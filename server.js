@@ -16,7 +16,8 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: "*",
+    origin: "https://56e69f09-41cf-4a85-b668-ec2034e6d7e6-00-1t4zcbwe7akvt.picard.replit.dev",
+    credentials: true
   })
 );
 //app.use(validateDbName);
@@ -39,13 +40,13 @@ import formulaOneRoutes from './routes/formulaOneRoutes.js';
 import copyRoutes from './routes/copyRoutes.js';
 
 app.use("/api/users", userRoutes);
-app.use("/api/fixtures", fixtureRoutes);
-app.use("/api/teams", teamRoutes);
-app.use("/api/players", playerRoutes);
-app.use("/api/tables", tableRoutes);
-app.use("/api/events", eventRoutes);
-app.use("/api/f1", formulaOneRoutes);
-app.use("/api/copy", copyRoutes);
+app.use("/api/fixtures", validateDbName, fixtureRoutes);
+app.use("/api/teams", validateDbName, teamRoutes);
+app.use("/api/players", validateDbName, playerRoutes);
+app.use("/api/tables", validateDbName, tableRoutes);
+app.use("/api/events", validateDbName,eventRoutes);
+app.use("/api/f1", validateDbName, formulaOneRoutes);
+//app.use("/api/copy", copyRoutes);
 
 app.use(errorHandler)
 const PORT = parseInt(process.env.PORT) || 5000;

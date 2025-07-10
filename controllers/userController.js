@@ -24,11 +24,15 @@ const register = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
+  
   const User = await getModel("Authentication", "User", userSchema);
   const user = await User.findOne({ username });
-  console.log(user);
+
   if (user && (await bcrypt.compare(password, user.password))) {
-    res.json({ token: generateToken(res, user._id) });
+generateToken(res, user._id);
+
+    res.json({
+_id: user._id, username: user.username });
   } else {
     res.status(401).json({ message: "Invalid credentials" });
   }

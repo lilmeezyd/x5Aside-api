@@ -23,17 +23,20 @@ const getFixtures = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({}).lean();
   const teams = await Team.find({}).lean();
   const teamMap = {};
+  const teamShortMap = {};
   for (const team of teams) {
-    teamMap[team.id] = team.name; // Map FPL ID -> Team Name
+    teamMap[team.id] = team.name;
+    teamShortMap[team.id] = team.short_name;// Map FPL ID -> Team Name
   }
 
-  // Replace homeTeam and awayTeam with names
+  
   const enrichedFixtures = fixtures.map((fixture) => ({
     ...fixture,
+    homeTeamShort: teamShortMap[fixture.homeTeam],
+    awayTeamShort: teamShortMap[fixture.awayTeam],
     homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
     awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
   }));
-
   res.json(enrichedFixtures);
 });
 

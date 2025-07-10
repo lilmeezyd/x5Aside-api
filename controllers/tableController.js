@@ -18,7 +18,7 @@ const getClassicTable = asyncHandler(async (req, res) => {
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.goalsFor - a.goalsAgainst;
-    const gdB = b.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
 
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
@@ -38,7 +38,7 @@ const getH2HTable = asyncHandler(async (req, res) => {
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.goalsFor - a.goalsAgainst;
-    const gdB = b.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
 
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
@@ -58,7 +58,7 @@ const Player = await getModel(dbName, "Player", playerSchema);
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.goalsFor - a.goalsAgainst;
-    const gdB = b.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
     if (gdB !== gdA) return gdB - gdA;
     return b.goalsFor - a.goalsFor;
   });
