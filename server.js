@@ -14,9 +14,20 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
+const allowedOrigins = [
+  "https://x5-aside.vercel.app",
+"https://56e69f09-41cf-4a85-b668-ec2034e6d7e6-00-1t4zcbwe7akvt.picard.replit.dev"
+]
+
 app.use(
   cors({
-    origin: "*",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true
   })
 );
