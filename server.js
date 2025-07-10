@@ -16,7 +16,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: "https://56e69f09-41cf-4a85-b668-ec2034e6d7e6-00-1t4zcbwe7akvt.picard.replit.dev",
+    origin: "*",
     credentials: true
   })
 );
