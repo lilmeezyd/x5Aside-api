@@ -12,7 +12,7 @@ import { getModel } from "../config/db.js";
 
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   console.log(Player);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
@@ -240,7 +240,7 @@ const getLeadingScorers = asyncHandler(async (req, res) => {
   const Player = await getModel(dbName, "Player", playerSchema); 
   const Team = await getModel(dbName, "Team", teamSchema);
   
-  const leadingScorers = await Leaderboard.find({}).populate("player");
+  const leadingScorers = await Leaderboard.find({}).sort({goals: -1}).populate("player");
   res.json(leadingScorers);
 });
 
