@@ -6,6 +6,7 @@ import playerSchema from "../models/playerModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import scoreFixtures from "../services/scoreFixtures.js";
 import { fetchFixtures } from "../services/fetchFixtures.js";
+import { updateClassicTable, updateH2HTable, calculateF1perGW } from "../services/updateTables.js"
 import { getModel } from "../config/db.js"
 
 const createFixtures = asyncHandler(async (req, res) => {
@@ -263,13 +264,13 @@ homeResult.event = fixture.eventId;
   res.json({ message: "Classic scores calculated successfully" })
   });*/
 const calculateClassicScores = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
-  const eventId = parseInt(req.params.eventId);
-  const fixtures = await Fixture.find({});
+  const eventId = 1;
+  const fixtures = await Fixture.find({eventId});
 
   // Cache teams
   const allTeams = await Team.find({});
@@ -288,7 +289,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   }
 
   // Cache all points
-  const allPoints = await PlayerEventPoints.find({}).lean();
+  const allPoints = await PlayerEventPoints.find({eventId}).lean();
   const pointsMap = {};
   for (const p of allPoints) {
     pointsMap[`${p.player}_${p.eventId}`] = p;
@@ -407,15 +408,19 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
     await Fixture.bulkWrite(bulkOps);
   }
 
+  await Promise.all([updateClassicTable(dbName, eventId), calculateF1perGW(dbName, eventId)])
+                     
+
   res.json({ message: "Classic scores calculated successfully" });
 });
 const calculateH2HScores = asyncHandler(async (req, res) => {
- const dbName = req.query.dbName || req.body?.dbName || "";
+ const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
-  const eventId = parseInt(req.params.eventId); const fixtures = await Fixture.find({});
+  const eventId = 1; 
+  const fixtures = await Fixture.find({eventId: {$lte: eventId}});
   const allTeams = await Team.find({});
   const teamMap = {};
   for (const team of allTeams) {
@@ -430,7 +435,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
     playersByTeam[teamId].push(player);
   }
 
-  const allPoints = await PlayerEventPoints.find({}).lean();
+  const allPoints = await PlayerEventPoints.find({eventId}).lean();
   const pointsMap = {};
   for (const p of allPoints) {
     pointsMap[`${p.player}_${p.eventId}`] = p;
@@ -522,7 +527,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
   if (bulkOps.length > 0) {
     await Fixture.bulkWrite(bulkOps);
   }
-
+await updateH2HTable(dbName, eventId)
   res.json({ message: "H2H scores calculated successfully" });
 });
 
