@@ -1,17 +1,19 @@
-import axios from 'axios';
-import asyncHandler from 'express-async-handler';
-import { getModel } from '../config/db.js';
-import eventSchema from '../models/eventModel.js';
+import axios from "axios";
+import asyncHandler from "express-async-handler";
+import { getModel } from "../config/db.js";
+import eventSchema from "../models/eventModel.js";
 
 export const fetchEvents = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
 
-  const response = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
+  const response = await axios.get(
+    "https://fantasy.premierleague.com/api/bootstrap-static/",
+  );
   const events = response.data.events;
 
-  const Event = await  getModel(dbName, 'Event', eventSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
 
-  const bulkOps = events.map(e => ({
+  const bulkOps = events.map((e) => ({
     updateOne: {
       filter: { eventId: e.id },
       update: {
@@ -32,50 +34,89 @@ export const fetchEvents = asyncHandler(async (req, res) => {
 
 export const getEvents = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
-  const Event = await getModel(dbName, 'Event', eventSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
 
   const events = await Event.find({}).sort({ eventId: 1 });
 
   res.status(200).json(events);
 });
 
-
 export const setCurrentEvent = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
-  const Event = await getModel(dbName, 'Event', eventSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
 
-  // Step 1: Atomically find and finish the current event
-  const currentEvent = await Event.findOneAndUpdate(
-    { current: true },
-    { $set: { current: false, finished: true } },
-    { new: true }
-  );
+  // Step 1: Get the current event (if any)
+  const currentEvent = await Event.findOne({ current: true });
 
-  if (!currentEvent) {
-    // No current event found — set eventId 1 as fallback (first-time init)
-    const result = await Event.updateOne(
-      { eventId: 1 },
-      { $set: { current: true } }
-    );
-
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ message: "No event found to initialize at eventId 1." });
-    }
-
-    return res.json({ message: "No current event found. Defaulted to GW 1." });
+  // Stop if the current event is event 38
+  if (currentEvent && currentEvent.eventId === 38) {
+    return res
+      .status(400)
+      .json({
+        message: "Event 38 is the final event. No further updates allowed.",
+      });
   }
 
-  // Step 2: Advance to the next event
-  const nextEventId = currentEvent.eventId + 1;
+  // Step 2: End the current event if exists
+  if (currentEvent) {
+    await Event.updateOne(
+      { eventId: currentEvent.eventId },
+      { $set: { current: false, finished: true } },
+    );
+  }
+
+  // Step 3: Promote the next event
   const nextEvent = await Event.findOneAndUpdate(
-    { eventId: nextEventId },
-    { $set: { current: true } },
-    { new: true }
+    { next: true },
+    { $set: { current: true, next: false } },
+    { new: true },
   );
 
   if (!nextEvent) {
-    return res.status(404).json({ message: `GW ${nextEventId} not found.` });
+    return res.status(404).json({ message: "No event with next: true found." });
   }
 
-  res.json({ message: `Advanced to GW ${nextEventId}` });
+  // Step 4: Prepare the following event as next, unless current is event 38
+  const nextEventId = nextEvent.eventId + 1;
+  if (nextEventId <= 38) {
+    await Event.updateOne({ eventId: nextEventId }, { $set: { next: true } });
+  }
+
+  res.status(200).json({
+    message: `Event ${nextEvent.eventId} is now current.`,
+    currentEventId: nextEvent.eventId,
+  });
+});
+
+export const resetEvents = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Event = await getModel(dbName, "Event", eventSchema);
+
+  // Step 1: Reset all events
+  await Event.updateMany(
+    {},
+    {
+      $set: {
+        finished: false,
+        current: false,
+        next: false,
+      },
+    },
+  );
+
+  // Step 2: Set eventId 1 as the next event
+  const updated = await Event.updateOne(
+    { eventId: 1 },
+    { $set: { next: true } },
+  );
+
+  if (updated.matchedCount === 0) {
+    return res
+      .status(404)
+      .json({ message: "Event with eventId: 1 not found." });
+  }
+
+  res
+    .status(200)
+    .json({ message: "All events reset. Event 1 is marked as next." });
 });
