@@ -367,12 +367,12 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
   const Event = await getModel(dbName, 'Event', eventSchema);
   const FormulaOne = await getModel(dbName, 'FormulaOne', formulaOneSchema);
 await FormulaOne.deleteMany({});
-  const [teams, events, allPlayers, allPoints] = await Promise.all([
-    Team.find({}),
-    Event.find({eventId }),
-    Player.find({}),
-    PlayerEventPoints.find({eventId
-                           })]);
+    const [teams, events, allPlayers, allPoints] = await Promise.all([
+      Team.find({}),
+      Event.find({ eventId: { $lte: eventId } }).sort({ eventId: 1 }),
+      Player.find({}),
+      PlayerEventPoints.find({ eventId: { $lte: eventId } })
+    ]);
   
 
   // Build maps

@@ -487,46 +487,7 @@ const getPlayerFixtures = asyncHandler(async (req, res) => {
   const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer");
   res.json(playerFixtures);
 })
-/*
-const calculatePlayerFixScores = asyncHandler(async (req, res) => {const fixtures = await PlayerFixture.find({});
-  for (const fixture of fixtures) {
-    const homeResult = {};
-    const awayResult = {};
-    const { homePlayer, awayPlayer, eventId } = fixture;
-    const homePlayerPoints = await PlayerEventPoints.findOne({
-      player: homePlayer,
-      eventId: eventId
-    });
 
-const awayPlayerPoints = await PlayerEventPoints.findOne({
-  player: awayPlayer,
-  eventId: eventId
-});
-    let netAwayPoints = awayPlayerPoints.eventPoints - awayPlayerPoints.eventTransfersCost;
-    let netHomePoints = homePlayerPoints.eventPoints - homePlayerPoints.eventTransfersCost;
-    homeResult.event = fixture.eventId;
-    homeResult.score = `${netHomePoints} : ${netAwayPoints}`;
-    awayResult.event = fixture.eventId;
-    awayResult.score = `${netHomePoints} : ${netAwayPoints}`;
-    if (netHomePoints > netAwayPoints) {
-      homeResult.result = "W";
-     awayResult.result = "L"; }
-    if (netAwayPoints > netHomePoints) {
-      homeResult.result = "L";
-     awayResult.result = "W"; }
-    if (netHomePoints === netAwayPoints) {
-      homeResult.result = "D";
-      awayResult.result = "D";
-    }
-    fixture.homeResult = homeResult;
-   fixture.awayResult = awayResult;
-    fixture.homeScore = netHomePoints;
-    fixture.awayScore = netAwayPoints;
-    await fixture.save();
-  }
-                     
-                                                                  res.json({ message: "Player fixture scores calculated successfully"})
-                                               })*/
 
 const calculatePlayerFixScores = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -618,7 +579,39 @@ const Event = await getModel(dbName, "Event", eventSchema);
   res.json({ message: "Player fixture scores calculated successfully" });
 });
 
+const getCurrentFixtures = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const PlayerFixture = await getModel(dbName, "PlayerFixture",
+ playerFixtureSchema)
+                                       const event = await Event.findOne({ current: true});
+  await Fixture.updateMany({}, {$set: {homeScoreClassic: null, awayScoreClassic: null, homeScoreH2H: null, awayScoreH2H: null, homeResultClassic: {}, awayResultClassic: {}, homeResultH2H: {}, awayResultH2H: {}, homeStats: [],                                  awayStats: [],
+                                         homeStatsH2H: [],
+                                         awayStatsH2H: [],
+                                         goalScorers: [], homeTotal: null, awayTotal: null }})
+  await PlayerFixture.updateMany({}, {$set: {homeScore: null, awayScore: null, homeResult: {}, awayResult: {}}});
+if(!event) {
+  res.json([])
+} else {
+  const { eventId } = event;
+  const fixtures = await Fixture.find({eventId});
+res.json(fixtures);
+}
+});
 
+const getNextFixtures = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const event = await Event.findOne({ next: true});
+if(!event) {
+  res.json([])
+} else {
+  const { eventId } = event;
+  const fixtures = await Fixture.find({eventId});
+res.json(fixtures);
+}});
   
 export {
   createFixtures,
@@ -630,5 +623,7 @@ export {
   calculateH2HScores,
   createPlayerFixtures,
   calculatePlayerFixScores,
-  getPlayerFixtures
+  getPlayerFixtures,
+  getCurrentFixtures,
+  getNextFixtures
 };

@@ -70,7 +70,7 @@ const getPlayers = asyncHandler(async (req, res) => {
   res.json(players);
 });
 const deleteAllPlayers = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
@@ -119,7 +119,7 @@ const deletePlayer = asyncHandler(async (req, res) => {
 });
 
 const updatePlayer = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   
   const updatedPlayer = await Player.updateOne(

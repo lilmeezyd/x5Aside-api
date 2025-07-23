@@ -2,7 +2,8 @@ import express from 'express';
 const router = express.Router();
 import { createFixtures, getFixtures, getFixtureById, scoreFixtureById, deleteAllFixtures, calculateClassicScores, calculateH2HScores, createPlayerFixtures,
         getPlayerFixtures,
-       calculatePlayerFixScores } from '../controllers/fixtureController.js';
+       calculatePlayerFixScores,
+       getCurrentFixtures, getNextFixtures } from '../controllers/fixtureController.js';
 import { cronAuth } from '../middleware/cronMiddleware.js'
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -14,6 +15,8 @@ router.patch("/calculate-h2h-scores", calculateH2HScores);
 router.post("/create-player-fixtures", createPlayerFixtures);
 router.patch("/calculate-player-fixture-scores", calculatePlayerFixScores);
 router.get("/player-fixtures", getPlayerFixtures);
+router.get('/current', getCurrentFixtures);
+router.get('/next', getNextFixtures);
 router.post("/score-fixture/:fixtureId", scoreFixtureById);
 router.get('/:id', getFixtureById)
 
