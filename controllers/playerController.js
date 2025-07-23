@@ -14,7 +14,6 @@ const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team } = req.body;
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
-  console.log(Player);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   
@@ -130,7 +129,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
 const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   try {
@@ -144,7 +143,10 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
         `https://fantasy.premierleague.com/api/entry/${fplId}/history/`,
       );
       const events = data.current;
-
+if (!Array.isArray(events) || events.length === 0) {
+  console.log(`No events to sync for @${player.xHandle}`);
+  return; // or handle differently
+}
       const bulkOps = events.map((event) => ({
         updateOne: {
           filter: {
@@ -180,7 +182,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   }
 });
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   try {
     const { playerId } = req.params;
@@ -195,7 +197,7 @@ const getPlayerEventPoints = asyncHandler(async (req, res) => {
 });
 
 const updateLeadingScorers = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   

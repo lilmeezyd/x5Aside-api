@@ -4,6 +4,8 @@ import { createPlayer, getPlayers, deleteAllPlayers, deletePlayer,   fetchAndSto
         updateLeadingScorers,
         getLeadingScorers, updatePlayer,
        getPlayerEventPoints } from '../controllers/playerController.js';
+import { cronAuth } from '../middleware/cronMiddleware.js'
+
 import { protect } from '../middleware/authMiddleware.js';
 
 router.post('/', createPlayer);
@@ -15,5 +17,7 @@ router.get('/get-leading-scorers', getLeadingScorers);
 router.patch('/:id', updatePlayer);
 router.delete('/:id', deletePlayer);
 router.get('/:playerId/event-points', getPlayerEventPoints);
+
+router.put('/sync-event-points-cron', cronAuth, fetchAndStorePlayerEventPoints);
 
 export default router;
