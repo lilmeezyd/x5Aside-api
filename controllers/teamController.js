@@ -6,7 +6,8 @@ import playerSchema from "../models/playerModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
 import formulaOneSchema from "../models/formulaOneModel.js"
 import formulaOneTotalSchema from "../models/formulaOneTotalModel.js"
-import playerEventPointsSchema from "../models/playerPointsModel.js";
+import leaderboardSchema from "../models/leaderboardModel.js";
+import playerTableSchema from "../models/playerTableModel.js"; import playerEventPointsSchema from "../models/playerPointsModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 import { getModel } from "../config/db.js"
@@ -150,7 +151,7 @@ const getTeamById = asyncHandler(async (req, res) => {
 });
 
 const deleteAllTeams = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName; 
   const Team = await getModel(dbName, "Team", teamSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
@@ -158,25 +159,29 @@ const deleteAllTeams = asyncHandler(async (req, res) => {
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
   const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTotalSchema);
-const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
-
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
-  await Player.deleteMany({});
-  await PlayerEventPoints.deleteMany({});
-  await PlayerFixture.deleteMany({});
-  await PlayerTable.deleteMany({});
-  await Leaderboard.deleteMany({});
-await FormulaOne.deleteMany({})
-  await FormulaOneTotal.deleteMany({})
-  await Team.deleteMany({});
-  await Fixture.deleteMany({});
-  await TeamClassic.deleteMany({});
-  await TeamH2H.deleteMany({});
-  await Player.deleteMany({});
-  
+
+  await Promise.all([
+    Player.deleteMany({}),
+    PlayerEventPoints.deleteMany({}),
+    PlayerFixture.deleteMany({}),
+    PlayerTable.deleteMany({}),
+    Leaderboard.deleteMany({}),
+    FormulaOne.deleteMany({}),
+    FormulaOneTotal.deleteMany({}),
+    Team.deleteMany({}),
+    Fixture.deleteMany({}),
+    TeamClassic.deleteMany({}),
+    TeamH2H.deleteMany({})
+  ]);
+
   res.json({ message: "All teams and associated data deleted" });
 });
+
+
 const deleteTeam = asyncHandler(async (req, res) => {
   const teamId = req.params.id;
   const dbName = req.query.dbName || req.body?.dbName || ""; 
