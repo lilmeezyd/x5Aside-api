@@ -11,19 +11,20 @@ import formulaOneTotalSchema from '../models/formulaOneTotalModel.js';
 const pointsTable = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
 export const calculateF1perGW = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body.dbName || "";
-console.log(dbName);
+  const dbName = req.query.dbName || req.body.dbName;
+  
   const Team = await getModel(dbName, 'Team', teamSchema);
   const Player = await getModel(dbName, 'Player', playerSchema);
   const PlayerEventPoints = await getModel(dbName, 'PlayerEventPoints', playerEventPointsSchema);
   const Event = await getModel(dbName, 'Event', eventSchema);
   const FormulaOne = await getModel(dbName, 'FormulaOne', formulaOneSchema);
-
+  const event = await Event.findOne({current: true})
+const { eventId } = event
   const [teams, events, allPlayers, allPoints] = await Promise.all([
     Team.find({}),
-    Event.find({finished:true}),
+    Event.find({ eventId: { $lte: eventId } }).sort({ eventId: 1 }),
     Player.find({}),
-    PlayerEventPoints.find({})
+    PlayerEventPoints.find({ eventId: { $lte: eventId } })
   ]);
 
   // Build maps
@@ -135,6 +136,7 @@ const calculateTotalF1 = async (dbName) => {
       },
     },
   ]);
+  console.log(totals)
 
   const updates = totals.map((t) => ({
     updateOne: {

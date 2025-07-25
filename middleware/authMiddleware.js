@@ -7,9 +7,9 @@ const User = await getModel("Authentication", "User", userSchema);
 const protect = asyncHandler(async (req, res, next) => {
     let token;
     token = req.cookies.jwt;
-    console.log(`cookies ${req.cookies}`);
+   /* console.log(`cookies ${req.cookies}`);
     console.log(`token ${token}`);
-
+*/
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);

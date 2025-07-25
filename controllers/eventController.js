@@ -18,6 +18,7 @@ export const fetchEvents = asyncHandler(async (req, res) => {
       filter: { eventId: e.id },
       update: {
         $set: {
+          next: e.is_next,
           current: e.is_current,
           finished: e.finished,
           deadline: e.deadline_time,

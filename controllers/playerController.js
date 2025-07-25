@@ -5,6 +5,7 @@ import fixtureSchema from "../models/fixtureModel.js";
 import { fetchData } from "../services/fetchManagerData.js";
 import playerEventPointsSchema from "../models/playerPointsModel.js";
 import teamSchema from "../models/teamModel.js";
+import eventSchema from "../models/eventModel.js";
 import leaderboardSchema from "../models/leaderboardModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import axios from "axios";
@@ -62,13 +63,56 @@ const createPlayer = asyncHandler(async (req, res) => {
   await playerTeam.save();
   res.json({ manager: player.manager });
 });
-const getPlayers = asyncHandler(async (req, res) => {
+/*const getPlayers = asyncHandler(async (req, res) => {
   const dbName =req.query.dbName || req.body?.dbName || "";
   const Player = await getModel(dbName, "Player", playerSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
+  
   const players = await Player.find({}).populate("team");
   res.json(players);
+});*/
+const getPlayers = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const PlayerPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+
+  const event = await Event.findOne({ current: true });
+  const { eventId } = event || {};
+
+  const players = await Player.find({}).populate("team");
+
+  let playerPointsMap = new Map();
+
+  if (eventId) {
+    const playerPoints = await PlayerPoints.find({ eventId });
+
+    // Map playerId => { overallPoints, overallRank }
+    playerPoints.forEach(pp => {
+      playerPointsMap.set(pp.player.toString(), {
+        overallPoints: pp.totalPoints || 0,
+        overallRank: pp.overallRank ?? null,
+      });
+    });
+  }
+
+  const response = players.map(player => {
+    const points = playerPointsMap.get(player._id.toString()) || {
+      overallPoints: 0,
+      overallRank: null,
+    };
+
+    return {
+      ...player.toObject(),
+      overallPoints: points.overallPoints,
+      overallRank: points.overallRank,
+    };
+  });
+
+  res.json(response);
 });
+
 const deleteAllPlayers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
@@ -92,15 +136,15 @@ const deleteAllPlayers = asyncHandler(async (req, res) => {
 });
 
 const deletePlayer = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || "";
+  const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema); 
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
-  
   const player = await Player.findById(req.params.id);
+  
   if (player) {
     await Player.deleteOne({ _id: player._id }); // Use deleteOne instead of remove
     await PlayerEventPoints.deleteMany({ player: player._id });
@@ -121,10 +165,24 @@ const deletePlayer = asyncHandler(async (req, res) => {
 const updatePlayer = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
-  
+  const { fplId, position } = req.body
+  if (!fplId || !position) {
+    res.status(400);
+    console.log("Invalid data");
+    throw new Error("Invalid data");
+  }
+  /*const playerExists = await Player.findOne({ fplId });
+  if (playerExists) {
+    res.status(400);
+    console.log("Fpl Id already taken")
+    throw new Error("Fpl Id already exists");
+  }*/
+
+  const data = await fetchData(fplId);
+  const { teamName, manager } = data;
   const updatedPlayer = await Player.updateOne(
     { _id: req.params.id },
-    req.body,
+    {$set: {teamName, manager, position, fplId}},
   );
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
@@ -137,7 +195,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
 
     for (const player of players) {
       const { fplId, _id: playerId } = player;
-     console.log(playerId, player)
+     
 
       const { data } = await axios.get(
         `https://fantasy.premierleague.com/api/entry/${fplId}/history/`,

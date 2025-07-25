@@ -4,6 +4,8 @@ import teamH2HSchema from "../models/teamH2HModel.js";
 import teamSchema from "../models/teamModel.js";
 import playerSchema from "../models/playerModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
+import formulaOneSchema from "../models/formulaOneModel.js"
+import formulaOneTotalSchema from "../models/formulaOneTotalModel.js"
 import playerEventPointsSchema from "../models/playerPointsModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
@@ -16,6 +18,7 @@ const createTeam = asyncHandler(async (req, res) => {
   //fetchAndStoreFPLTeams();
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
+const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTotalSchema);
   
 
   if (!Array.isArray(teams)) {
@@ -25,11 +28,13 @@ const createTeam = asyncHandler(async (req, res) => {
 
   const classicPromises = [];
   const h2hPromises = [];
+  const formulaOneTotalPromises = [];
 
   for (const team of teams) {
-    const [classicExists, h2hExists] = await Promise.all([
+    const [classicExists, h2hExists, formulaOneExists ] = await Promise.all([
       TeamClassic.exists({ team: team._id }),
       TeamH2H.exists({ team: team._id }),
+      FormulaOneTotal.exists({ teamId: team._id })
     ]);
 
     if (!classicExists) {
@@ -63,15 +68,24 @@ const createTeam = asyncHandler(async (req, res) => {
         }),
       );
     }
+    if(!formulaOneExists) {
+      formulaOneTotalPromises.push(
+        FormulaOneTotal.create({
+          teamId: team._id,
+          teamName: team.name,
+          totalScore: 0})
+      )
+    }
   }
 
-  await Promise.all([...classicPromises, ...h2hPromises]);
+  await Promise.all([...classicPromises, ...h2hPromises, ...formulaOneTotalPromises]);
 
   res.status(201).json({
     message: "Teams processed",
     createdClassic: classicPromises.length,
     createdH2H: h2hPromises.length,
     totalTeams: teams.length,
+    createdFormulaOneTotal: formulaOneTotalPromises.length
   });
 });
 
@@ -144,14 +158,23 @@ const deleteAllTeams = asyncHandler(async (req, res) => {
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
-  
+  const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTotalSchema);
+const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
+
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
+  await Player.deleteMany({});
+  await PlayerEventPoints.deleteMany({});
+  await PlayerFixture.deleteMany({});
+  await PlayerTable.deleteMany({});
+  await Leaderboard.deleteMany({});
+await FormulaOne.deleteMany({})
+  await FormulaOneTotal.deleteMany({})
   await Team.deleteMany({});
   await Fixture.deleteMany({});
   await TeamClassic.deleteMany({});
   await TeamH2H.deleteMany({});
   await Player.deleteMany({});
-  await PlayerEventPoints.deleteMany({});
-  await PlayerFixture.deleteMany({});
+  
   res.json({ message: "All teams and associated data deleted" });
 });
 const deleteTeam = asyncHandler(async (req, res) => {
