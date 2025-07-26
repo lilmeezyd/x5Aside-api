@@ -7,7 +7,7 @@ import { cronAuth } from '../middleware/cronMiddleware.js'
 
 router.get('/fetch-events', fetchEvents);
 router.get('/', getEvents);
-router.post('/set-current-event', setCurrentEvent);
+router.patch('/set-current-event', setCurrentEvent);
 router.patch('/reset', resetEvents);
 
  router.patch('/set-current-event-cron', cronAuth, setCurrentEvent);
