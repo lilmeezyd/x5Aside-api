@@ -198,12 +198,12 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
      
 
       const { data } = await axios.get(
-        `https://fantasy.premierleague.com/api/entry/${fplId}/history/`,
+        `https://fantasy.premierleague.com/api/entry/${fplId}/history?format=json`,
       );
       const events = data.current;
 if (!Array.isArray(events) || events.length === 0) {
   console.log(`No events to sync for @${player.xHandle}`);
-  return; // or handle differently
+  continue; // or handle differently
 }
       const bulkOps = events.map((event) => ({
         updateOne: {
