@@ -395,6 +395,17 @@ await FormulaOne.deleteMany({});
     for (const team of teams) {
       const teamIdStr = team._id.toString();
       const players = playersByTeam.get(teamIdStr) || [];
+      // Get each player’s score for this event
+      const playerScores = players.map(p => ({
+        playerId: p._id,
+        score: pointsByPlayerEvent.get(`${p._id}_${eventId}`) || 0
+      }));
+      // Sort by score descending
+    playerScores.sort((a, b) => b.score - a.score);
+
+    // Extract top 5 scores (or fill with 0 if less than 5 players)
+    const rankedScores = playerScores.map(p => p.score);
+    while (rankedScores.length < 5) rankedScores.push(0); // pad with zeros
 
       const totalPoints = players.reduce((sum, p) => {
         return sum + (pointsByPlayerEvent.get(`${p._id}_${eventId}`) || 0);
@@ -405,11 +416,16 @@ await FormulaOne.deleteMany({});
         name: team.name,
         eventId,
         totalPoints,
+        first: rankedScores[0],
+      second: rankedScores[1],
+      third: rankedScores[2],
+      fourth: rankedScores[3],
+      fifth: rankedScores[4],
       });
     }
 
     // Sort and assign scores
-    teamScores.sort((a, b) => b.totalPoints - a.totalPoints);
+    teamScores.sort((a, b) => b.totalPoints - a.totalPoints).sort((a, b) => b.first - a.first).sort((a, b) => b.second - a.second).sort((a, b) => b.third - a.third).sort((a, b) => b.fourth - a.fourth).sort((a, b) => b.fifth - a.fifth);
 
     const updates = teamScores.map((team, index) => ({
       updateOne: {

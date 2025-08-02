@@ -91,18 +91,27 @@ const { eventId } = event
 
 export const getF1Standings = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body.dbName || "";
-console.log(dbName);
   const FormulaOneTotal = await getModel(dbName, 'FormulaOneTotal', formulaOneTotalSchema);
+  
+  const Team = await getModel(dbName, 'Team', teamSchema);
 
   const standings = await FormulaOneTotal.find({})
-    .sort({ totalScore: -1 })
-    .select('teamId teamName totalScore');
+  .populate('teamId')
+  .sort({ totalScore: -1 })
+  .select('teamId teamName totalScore');
+
+standings.sort((a, b) => {
+  if (a.totalScore === b.totalScore) {
+    return a.teamId.id - b.teamId.id;
+  }
+  return 0; // keep totalScore order
+});
 
   res.status(200).json(standings);
 });
 
 export const getF1ByEvent = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body.dbName || "";
+  const dbName = req.query.dbName || req.body.dbName;
   const eventId = parseInt(req.params.eventId);
 
   if (isNaN(eventId)) {
@@ -113,8 +122,16 @@ export const getF1ByEvent = asyncHandler(async (req, res) => {
   const FormulaOne = await getModel(dbName, 'FormulaOne', formulaOneSchema);
 
   const results = await FormulaOne.find({ eventId })
+    .populate('teamId')
     .sort({ score: -1 })
     .select('teamId teamName score totalPoints');
+
+  results.sort((a, b) => {
+    if (a.score === b.score) {
+      return a.teamId.id - b.teamId.id;
+    }
+    return 0; // keep totalScore order
+  });
 
   res.status(200).json(results);
 });
