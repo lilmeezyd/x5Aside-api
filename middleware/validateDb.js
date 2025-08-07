@@ -1,4 +1,4 @@
-const allowedDbs = ['X5Aside', 'app5Aside'];
+const allowedDbs = ['X5Aside', 'app5Aside', 'test'];
 
 const validateDbName = (req, res, next) => {
   const dbName = req.query.dbName || req.body.dbName;

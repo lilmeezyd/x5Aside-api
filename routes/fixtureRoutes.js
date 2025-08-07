@@ -8,12 +8,12 @@ import { cronAuth } from '../middleware/cronMiddleware.js'
 import { protect } from '../middleware/authMiddleware.js';
 
 router.get('/', getFixtures);
-router.post('/', createFixtures);
-router.delete('/', deleteAllFixtures);
-router.patch("/calculate-classic-scores", calculateClassicScores);
-router.patch("/calculate-h2h-scores", calculateH2HScores);
-router.post("/create-player-fixtures", createPlayerFixtures);
-router.patch("/calculate-player-fixture-scores", calculatePlayerFixScores);
+router.post('/', protect, createFixtures);
+router.delete('/', protect, deleteAllFixtures);
+router.patch("/calculate-classic-scores", protect, calculateClassicScores);
+router.patch("/calculate-h2h-scores", protect, calculateH2HScores);
+router.post("/create-player-fixtures", protect, createPlayerFixtures);
+router.patch("/calculate-player-fixture-scores", protect, calculatePlayerFixScores);
 router.get("/player-fixtures", getPlayerFixtures);
 router.get('/current', getCurrentFixtures);
 router.get('/next', getNextFixtures);
