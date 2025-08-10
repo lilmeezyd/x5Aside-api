@@ -105,7 +105,7 @@ const getTeamById = asyncHandler(async (req, res) => {
   const Team = await getModel(dbName, "Team", teamSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   //console.log(Fixture)
-  
+  /*
   const team = await Team.findById(req.params.id);
   const liverpool = await Team.findOne({ name: "Liverpool" });
   const villa = await Team.findOne({ name: "Aston Villa" });
@@ -117,9 +117,9 @@ const getTeamById = asyncHandler(async (req, res) => {
 
   const arsenal = await Team.findOne({ name: "Arsenal" });
 
-  const fixture = await Fixture.findOne({ homeTeam: everton.id, awayTeam: liverpool.id });
+  const fixture = await Fixture.findOne({ homeTeam: everton.id, awayTeam: liverpool.id });*/
   //console.log(fixture)
- fixture.eventId = 15;
+ /*fixture.eventId = 15;
   await fixture.save();
   
   const fixture3 = await Fixture.findOne({ homeTeam: villa.id, awayTeam: liverpool.id });
@@ -147,7 +147,7 @@ const getTeamById = asyncHandler(async (req, res) => {
   } else {
     res.status(404);
     throw new Error("Team not found");
-  }
+  }*/
 });
 
 const deleteAllTeams = asyncHandler(async (req, res) => {

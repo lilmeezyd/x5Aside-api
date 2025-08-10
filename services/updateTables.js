@@ -375,17 +375,17 @@ await FormulaOne.deleteMany({});
     ]);
   
 
-  // Build maps
-  const playersByTeam = new Map(); // team -> [players]
+
+  const playersByTeam = new Map(); 
   for (const player of allPlayers) {
     const tid = player.team.toString();
     if (!playersByTeam.has(tid)) playersByTeam.set(tid, []);
     playersByTeam.get(tid).push(player);
   }
 
-  const pointsByPlayerEvent = new Map(); // `${player}_${eventId}` -> points
+  const pointsByPlayerEvent = new Map(); 
   for (const pt of allPoints) {
-    pointsByPlayerEvent.set(`${pt.player}_${pt.eventId}`, pt.eventPoints || 0);
+    pointsByPlayerEvent.set(`${pt.player}_${pt.eventId}`, (pt.eventPoints - pt.eventTransfersCost)|| 0);
   }
 
   for (const event of events) {
@@ -424,14 +424,23 @@ await FormulaOne.deleteMany({});
       });
     }
 
-    // Sort and assign scores
-    teamScores.sort((a, b) => b.totalPoints - a.totalPoints).sort((a, b) => b.first - a.first).sort((a, b) => b.second - a.second).sort((a, b) => b.third - a.third).sort((a, b) => b.fourth - a.fourth).sort((a, b) => b.fifth - a.fifth);
+    teamScores.sort((a, b) => {
+      return (
+        b.totalPoints - a.totalPoints ||
+        b.first - a.first ||
+        b.second - a.second ||
+        b.third - a.third ||
+        b.fourth - a.fourth ||
+        b.fifth - a.fifth
+      );
+    });
 
     const updates = teamScores.map((team, index) => ({
       updateOne: {
         filter: { teamId: team.teamId, eventId: team.eventId },
         update: {
           $set: {
+            rank: index+1,
             teamId: team.teamId,
             teamName: team.name,
             eventId: team.eventId,

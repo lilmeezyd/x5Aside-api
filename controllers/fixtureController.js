@@ -415,13 +415,26 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
-  await PlayerFixture.deleteMany({});
-  const eventId = parseInt(req.params.eventId);
-  const fixtures = await Fixture.find({});
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const event = await Event.findOne({next: true}); 
+  if(!event) {
+    res.status(404);
+    throw new Error('No upcoming GWs found');
+  }
+  const { eventId } = event;
+  const allTeams = await Team.find({});
+  const allHaveFivePlayers = allTeams.every(team => team.players?.length === 5);
+if(!allHaveFivePlayers) {
+  res.status(404);
+  throw new Error('Some teams do not have 5 players');
+}
+  await PlayerFixture.deleteMany({ eventId: { $gte: eventId } });
+
+  const fixtures = await Fixture.find({ eventId: { $gte: eventId } });
+
   
 
   // Build teamId lookup map
-  const allTeams = await Team.find({});
   const teamMap = {};
   for (const team of allTeams) {
     teamMap[team.id] = team._id;
@@ -483,8 +496,10 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
 const getPlayerFixtures = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
   
-  const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer");
+  const playerFixtures = await PlayerFixture.find({}).populate("homePlayer").populate("awayPlayer").populate("homeTeam").populate("awayTeam");
   res.json(playerFixtures);
 })
 
