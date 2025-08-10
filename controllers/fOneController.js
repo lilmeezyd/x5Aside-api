@@ -128,7 +128,7 @@ export const getF1ByEvent = asyncHandler(async (req, res) => {
 
   results.sort((a, b) => {
     if (a.score === b.score) {
-      return a.teamId.id - b.teamId.id;
+      return b.totalPoints - a.totalPoints;
     }
     return 0; // keep totalScore order
   });
