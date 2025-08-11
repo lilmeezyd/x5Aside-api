@@ -256,10 +256,16 @@ const getPlayerEventPoints = asyncHandler(async (req, res) => {
 
 const updateLeadingScorers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
+  const Event = await getModel(dbName, "Event", eventSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
-  
-  const fixtures = await Fixture.find({});
+  const event = await Event.findOne({ current: true });
+  if (!event) {
+    res.status(404);
+    throw new Erro("No current Gw running");
+  }
+  const { eventId } = event;
+  const fixtures = await Fixture.find({ eventId: { $lte: eventId }});
   const goalsScorers = [];
   for (const fixture of fixtures) {
     const { homeStats, awayStats } = fixture;
