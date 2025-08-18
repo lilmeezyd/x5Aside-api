@@ -2,8 +2,10 @@ import asyncHandler from "express-async-handler";
 import eventSchema from "../models/eventModel.js"
 import fixtureSchema from "../models/fixtureModel.js";
 import teamSchema from "../models/teamModel.js";
+import picksSchema from "../models/picksModel.js";
 import playerEventPointsSchema from "../models/playerPointsModel.js";
 import playerSchema from "../models/playerModel.js";
+import tieBreakerSchema from "../models/tieBreakerModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import scoreFixtures from "../services/scoreFixtures.js";
 import { fetchFixtures } from "../services/fetchFixtures.js";
@@ -19,28 +21,102 @@ const createFixtures = asyncHandler(async (req, res) => {
 });
 
 const getFixtures = asyncHandler(async (req, res) => {
- const dbName = req.query.dbName || req.body?.dbName;
+  const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
+
   const fixtures = await Fixture.find({}).lean();
   const teams = await Team.find({}).lean();
+
+  // Build lookup maps
   const teamMap = {};
   const teamShortMap = {};
   for (const team of teams) {
     teamMap[team.id] = team.name;
-    teamShortMap[team.id] = team.short_name;// Map FPL ID -> Team Name
+    teamShortMap[team.id] = team.short_name;
   }
 
-  
-  const enrichedFixtures = fixtures.map((fixture) => ({
-    ...fixture,
-    homeTeamShort: teamShortMap[fixture.homeTeam],
-    awayTeamShort: teamShortMap[fixture.awayTeam],
-    homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
-    awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
-  }));
+  const enrichedFixtures = fixtures.map((fixture) => {
+    // Inline splitHomeAway logic
+    function splitHomeAway(home, away) {
+      const map = new Map();
+
+      // Add home multipliers
+      for (let { element, webName, multiplier } of home || []) {
+        const prev = map.get(element) || { webName, multiplier: 0 };
+        map.set(element, {
+          webName,
+          multiplier: prev.multiplier + multiplier,
+        });
+      }
+
+      // Combine and subtract away multipliers
+      const awayMap = new Map();
+      for (let { element, webName, multiplier } of away || []) {
+        const prev = awayMap.get(element) || { webName, multiplier: 0 };
+        awayMap.set(element, {
+          webName,
+          multiplier: prev.multiplier + multiplier,
+        });
+      }
+      for (let [element, { webName, multiplier }] of awayMap.entries()) {
+        const prev = map.get(element) || { webName, multiplier: 0 };
+        map.set(element, {
+          webName,
+          multiplier: prev.multiplier - multiplier,
+        });
+      }
+
+      // Split into home/away
+      const finalHome = [];
+      const finalAway = [];
+      for (let [element, { webName, multiplier }] of map.entries()) {
+        if (multiplier > 0) {
+          finalHome.push({ element, webName, multiplier });
+        } else if (multiplier < 0) {
+          finalAway.push({ element, webName, multiplier: -multiplier });
+        }
+      }
+
+      // Sort
+      finalHome.sort((a, b) => a.element - b.element);
+      finalAway.sort((a, b) => a.element - b.element);
+
+      return { home: finalHome, away: finalAway };
+    }
+
+    // Apply split logic to all fixture fields
+    const haTeams = splitHomeAway(fixture.homePicks, fixture.awayPicks);
+    const haCap   = splitHomeAway(fixture.homeCap, fixture.awayCap);
+    const haAce   = splitHomeAway(fixture.homeAce, fixture.awayAce);
+    const haMid   = splitHomeAway(fixture.homeMid, fixture.awayMid);
+    const haDef   = splitHomeAway(fixture.homeDef, fixture.awayDef);
+    const haFwd   = splitHomeAway(fixture.homeFwd, fixture.awayFwd);
+
+    return {
+      ...fixture,
+      homeTeamShort: teamShortMap[fixture.homeTeam],
+      awayTeamShort: teamShortMap[fixture.awayTeam],
+      homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
+      awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
+      homePicks: haTeams.home,
+      awayPicks: haTeams.away,
+      homeCap: haCap.home,
+      awayCap: haCap.away,
+      homeAce: haAce.home,
+      awayAce: haAce.away,
+      homeMid: haMid.home,
+      awayMid: haMid.away,
+      homeDef: haDef.home,
+      awayDef: haDef.away,
+      homeFwd: haFwd.home,
+      awayFwd: haFwd.away,
+    };
+  });
+
   res.json(enrichedFixtures);
 });
+
 
 const getFixtureById = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -136,13 +212,19 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const TieBreaker = await getModel(dbName, "TieBreaker", tieBreakerSchema);
+  const Picks = await getModel(dbName, "Picks", picksSchema);
   const event = await Event.findOne({ current: true});
 if(!event) {
-  res.status(404).json({ message: "No Gameweek running, set a GW to current"})
+  return res.status(404).json({ message: "No Gameweek running, set a GW to current"})
 }
   const { eventId } = event;
   const fixtures = await Fixture.find({eventId});
-
+const breaker = await TieBreaker.find({eventId}).lean();
+  const breakerMap = {}
+  for (const b of breaker) {
+breakerMap[b.player] = { capPoints: b.capPoints, benchPoints: b.benchPoints }
+  }
   // Cache teams
   const allTeams = await Team.find({});
   const teamMap = {};
@@ -166,12 +248,19 @@ if(!event) {
     pointsMap[`${p.player}_${p.eventId}`] = p;
   }
 
+  const allPicks = await Picks.find({eventId})
+const picksMap = {}
+  for (const p of allPicks) {
+picksMap[p.player] = p.picks
+}
+
   const bulkOps = [];
 
   for (const fixture of fixtures) {
     const homeTeamId = teamMap[fixture.homeTeam];
     const awayTeamId = teamMap[fixture.awayTeam];
-    const eventId = fixture.eventId;
+    const fixtureEventId = fixture.eventId;
+
 
     const homePlayers = playersByTeam[homeTeamId] || [];
     const awayPlayers = playersByTeam[awayTeamId] || [];
@@ -183,24 +272,44 @@ if(!event) {
 
     const homeStats = [];
     const awayStats = [];
+    const homePicks = [];
+    const awayPicks = []
+    const homeCap = []
+    const awayCap = []
+    const homeAce = []
+    const awayAce = []
+    const homeMid = []
+    const awayMid = []
+    const homeDef = []
+    const awayDef = []
+    const homeFwd = []
+    const awayFwd = []
 
     for (const p of homePlayers) {
-      const points = pointsMap[`${p._id}_${eventId}`];
-      if (!points) continue;
+      const points = pointsMap[`${p._id}_${fixtureEventId}`];
+      const tieBreak = breakerMap[p._id]
+      const selectedPicks = picksMap[p._id];
+      if (!points || !tieBreak) continue;
       const net = points.eventPoints - points.eventTransfersCost;
       homeTotal += net;
-      homeStats.push({ ...p, points: net, goals: 0, eventPoints: points.eventPoints, eventTransfersCost: points.eventTransfersCost });
+     p.position === 'Ace' ? homeAce.push(...selectedPicks) : p.position === 'Captain' ? homeCap.push(...selectedPicks) : p.position === 'Defender' ? homeDef.push(...selectedPicks) : p.position === 'Midfielder' ? homeMid.push(...selectedPicks) : homeFwd.push(...selectedPicks)
+       homePicks.push(...selectedPicks)
+      homeStats.push({ ...p, ...tieBreak, points: net, goals: 0, eventPoints: points.eventPoints, eventTransfersCost: points.eventTransfersCost });
     }
 
     for (const p of awayPlayers) {
-      const points = pointsMap[`${p._id}_${eventId}`];
-      if (!points) continue;
+      const points = pointsMap[`${p._id}_${fixtureEventId}`];
+      const tieBreak = breakerMap[p._id]
+      const selectedPicks = picksMap[p._id];
+      if (!points || !tieBreak) continue;
       const net = points.eventPoints - points.eventTransfersCost;
       awayTotal += net;
-      awayStats.push({ ...p, points: net, goals: 0, eventPoints: points.eventPoints, eventTransfersCost: points.eventTransfersCost });
+      p.position === 'Ace' ? awayAce.push(...selectedPicks) : p.position === 'Captain' ? awayCap.push(...selectedPicks) : p.position === 'Defender' ? awayDef.push(...selectedPicks) : p.position === 'Midfielder' ? awayMid.push(...selectedPicks) : awayFwd.push(...selectedPicks)
+      
+            awayPicks.push(...selectedPicks)
+      awayStats.push({ ...p, ...tieBreak, points: net, goals: 0, eventPoints: points.eventPoints, eventTransfersCost: points.eventTransfersCost });
     }
 
-    // Determine score and goal assignment
     const assignGoals = (stats, diff) => {
       let goalsScored = Math.floor(diff / 20) + 1;
       let extras = goalsScored % 5;
@@ -213,8 +322,12 @@ if(!event) {
       }
 
       const topIds = stats
-        .sort((a, b) => b.points - a.points)
-        .slice(0, extras)
+        .sort((a, b) => 
+          b.points - a.points ||
+          (b.capPoints || 0) - (a.capPoints || 0) ||
+          (b.benchPoints || 0) - (a.benchPoints || 0) ||
+          Number(a.fplId) - Number(b.fplId)
+        ).slice(0, extras)
         .map(p => p._id.toString());
 
       for (let i = 0; i < stats.length; i++) {
@@ -261,6 +374,9 @@ if(!event) {
         filter: { _id: fixture._id },
         update: {
           $set: {
+            homeCap, awayCap, homeAce, awayAce, homeMid, awayMid, homeDef, awayDef, homeFwd, awayFwd,
+            awayPicks,
+            homePicks,
             homeTotal,
             awayTotal,
             homeScoreClassic,
@@ -273,6 +389,7 @@ if(!event) {
         },
       },
     });
+    
   }
 
   if (bulkOps.length > 0) {
@@ -291,6 +408,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const Picks = await getModel(dbName, "Picks", picksSchema);
     const event = await Event.findOne({ current: true});
     if(!event) {
       res.status(404).json({ message: "No Gameweek running, set a GW to current"})
@@ -317,7 +435,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
   for (const p of allPoints) {
     pointsMap[`${p.player}_${p.eventId}`] = p;
   }
-
+  
   const bulkOps = [];
 
   for (const fixture of fixtures) {
@@ -335,6 +453,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
 
     for (const homePlayer of homePlayers) {
       const homePoints = pointsMap[`${homePlayer._id}_${eventId}`];
+
       if (!homePoints) continue;
 
       const netHome = homePoints.eventPoints - homePoints.eventTransfersCost;

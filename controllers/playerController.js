@@ -2,10 +2,12 @@ import playerSchema from "../models/playerModel.js";
 import asyncHandler from "express-async-handler";
 import playerTableSchema from "../models/playerTableModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
+import picksSchema from "../models/picksModel.js";
 import { fetchData } from "../services/fetchManagerData.js";
 import playerEventPointsSchema from "../models/playerPointsModel.js";
 import teamSchema from "../models/teamModel.js";
 import eventSchema from "../models/eventModel.js";
+import tieBreakerSchema from "../models/tieBreakerModel.js";
 import leaderboardSchema from "../models/leaderboardModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import axios from "axios";
@@ -186,59 +188,137 @@ const updatePlayer = asyncHandler(async (req, res) => {
   );
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
+
 const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
+
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const TieBreaker = await getModel(dbName, "TieBreaker", tieBreakerSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const Picks = await getModel(dbName, "Picks", picksSchema);
+
+  const event = await Event.findOne({ current: true });
+  if (!event) {
+    res.status(404);
+    throw new Error("No current event running");
+  }
+
+  const { eventId } = event;
+
+
+  const { data: bootstrap } = await axios.get(
+    "https://fantasy.premierleague.com/api/bootstrap-static"
+  );
+  const { elements } = bootstrap;
+
   try {
     const players = await Player.find({});
+    const captainCache = new Map();
 
     for (const player of players) {
-      const { fplId, _id: playerId } = player;
-     
+      try {
+        const { fplId, _id: playerId } = player;
 
-      const { data } = await axios.get(
-        `https://fantasy.premierleague.com/api/entry/${fplId}/history?format=json`,
-      );
-      const events = data.current;
-if (!Array.isArray(events) || events.length === 0) {
-  console.log(`No events to sync for @${player.xHandle}`);
-  continue; // or handle differently
-}
-      const bulkOps = events.map((event) => ({
-        updateOne: {
-          filter: {
-            player: playerId,
-            eventId: event.event,
-          },
-          update: {
-            $set: {
-              player: playerId,
-              eventId: event.event,
-              eventPoints: event.points,
-              eventTransfersCost: event.event_transfers_cost,
-              overallRank: event.overall_rank,
-              totalPoints: event.total_points,
-            },
-          },
-          upsert: true, // Avoid duplicate inserts for same player+event
-        },
-      }));
+        const [historyRes, picksRes] = await Promise.all([
+          axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/history/`),
+          axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/event/${eventId}/picks/`)
+        ]);
 
-      if (bulkOps.length > 0) {
-        await PlayerEventPoints.bulkWrite(bulkOps);
-        console.log(`Synced ${bulkOps.length} events for @${player.xHandle}`);
+        const events = historyRes.data?.current?.filter(e => e.event === eventId) || [];
+        if (events.length === 0) {
+          console.log(`No current event data for @${player.xHandle}`);
+          continue;
+        }
+
+        const picks = picksRes.data?.picks || [];
+        const benchPoints = picksRes.data?.entry_history?.points_on_bench || 0;
+
+        // Map picks to store names + multipliers
+        const mappedPicks = picks.filter(p => p.multiplier > 0).map(pick => {
+          const el = elements.find(e => e.id === pick.element);
+          return {
+            webName: el?.web_name || "Unknown",
+            element: pick.element,
+            multiplier: pick.multiplier
+          };
+        });
+
+        
+        const captainPick = picks.find(p => p.multiplier > 1);
+        let capPoints = 0;
+        if (captainPick) {
+          const { element, multiplier } = captainPick;
+
+          if (!captainCache.has(element)) {
+            const { data } = await axios.get(
+              `https://fantasy.premierleague.com/api/element-summary/${element}/`
+            );
+            captainCache.set(element, data);
+          }
+
+          const elementData = captainCache.get(element);
+          const historyItem = elementData?.history?.find(
+            h => Number(h.round) === Number(eventId)
+          );
+          capPoints = historyItem ? historyItem.total_points * multiplier : 0;
+        }
+
+        
+        await Promise.all([
+          Picks.bulkWrite([
+            {
+              updateOne: {
+                filter: { player: playerId, eventId },
+                update: { $set: { picks: mappedPicks } },
+                upsert: true
+              }
+            }
+          ]),
+          TieBreaker.bulkWrite([
+            {
+              updateOne: {
+                filter: { player: playerId, eventId },
+                update: { $set: { capPoints, benchPoints } },
+                upsert: true
+              }
+            }
+          ]),
+          PlayerEventPoints.bulkWrite(
+            events.map(e => ({
+              updateOne: {
+                filter: { player: playerId, eventId: e.event },
+                update: {
+                  $set: {
+                    player: playerId,
+                    eventId: e.event,
+                    eventPoints: e.points,
+                    eventTransfersCost: e.event_transfers_cost,
+                    overallRank: e.overall_rank,
+                    totalPoints: e.total_points,
+                  }
+                },
+                upsert: true
+              }
+            }))
+          )
+        ]);
+
+        console.log(`Synced event ${eventId} for @${player.xHandle}`);
+      } catch (err) {
+        console.error(`Error syncing @${player.xHandle}:`, err);
       }
     }
 
-    res
-      .status(200)
-      .json({ message: "Player event points updated successfully." });
+    res.status(200).json({ message: "Player event points updated successfully." });
   } catch (err) {
-    console.error("Error syncing player event points:", err.message);
+    console.error("Main error:", err);
     res.status(500).json({ error: "Failed to sync player event points." });
   }
 });
+
+
+
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
