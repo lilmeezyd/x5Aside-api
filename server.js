@@ -50,6 +50,7 @@ import eventRoutes from './routes/eventRoutes.js';
 import formulaOneRoutes from './routes/formulaOneRoutes.js';
 import copyRoutes from './routes/copyRoutes.js';
 import helpRoutes from './routes/helpRoutes.js';
+import imageRoutes from './routes/imageRoutes.js';
 
 app.use("/api/users", userRoutes);
 app.use("/api/fixtures", validateDbName, fixtureRoutes);
@@ -58,6 +59,7 @@ app.use("/api/players", validateDbName, playerRoutes);
 app.use("/api/tables", validateDbName, tableRoutes);
 app.use("/api/events", validateDbName,eventRoutes);
 app.use("/api/f1", validateDbName, formulaOneRoutes);
+app.use("/api/upload", validateDbName, imageRoutes);
 app.use("/api/help", helpRoutes)
 //app.use("/api/copy", copyRoutes);
 

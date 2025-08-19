@@ -1,4 +1,5 @@
 import playerSchema from "../models/playerModel.js";
+import pLimit from "p-limit";
 import asyncHandler from "express-async-handler";
 import playerTableSchema from "../models/playerTableModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
@@ -188,7 +189,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
   );
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
-
+/*
 const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
 
@@ -315,6 +316,138 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
     console.error("Main error:", err);
     res.status(500).json({ error: "Failed to sync player event points." });
   }
+});
+*/
+
+
+const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const TieBreaker = await getModel(dbName, "TieBreaker", tieBreakerSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const Picks = await getModel(dbName, "Picks", picksSchema);
+
+  const event = await Event.findOne({ current: true });
+  if (!event) {
+    return res.status(404).json({ message: "No current event running" });
+  }
+
+  const { eventId } = event;
+
+  // bootstrap once
+  const { data: bootstrap } = await axios.get("https://fantasy.premierleague.com/api/bootstrap-static");
+  const elementMap = Object.fromEntries(bootstrap.elements.map(e => [e.id, e]));
+
+  const players = await Player.find({});
+  const captainCache = new Map();
+
+  // collect bulk ops
+  const picksOps = [];
+  const tieBreakerOps = [];
+  const pointsOps = [];
+
+  // limit concurrency to avoid overwhelming FPL API
+  const limit = pLimit(10); // at most 10 players at a time
+
+  await Promise.all(
+    players.map(player =>
+      limit(async () => {
+        try {
+          const { fplId, _id: playerId } = player;
+
+          const [historyRes, picksRes] = await Promise.all([
+            axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/history/`),
+            axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/event/${eventId}/picks/`),
+          ]);
+
+          const events = historyRes.data?.current?.filter(e => e.event === eventId) || [];
+          if (!events.length) {
+            console.log(`No current event data for @${player.xHandle}`);
+            return;
+          }
+
+          const picks = picksRes.data?.picks || [];
+          const benchPoints = picksRes.data?.entry_history?.points_on_bench || 0;
+
+          // mapped picks (fast O(1) lookup with elementMap)
+          const mappedPicks = picks
+            .filter(p => p.multiplier > 0)
+            .map(p => ({
+              webName: elementMap[p.element]?.web_name || "Unknown",
+              element: p.element,
+              multiplier: p.multiplier,
+            }));
+
+          // captain points
+          let capPoints = 0;
+          const captainPick = picks.find(p => p.multiplier > 1);
+          if (captainPick) {
+            const { element, multiplier } = captainPick;
+
+            if (!captainCache.has(element)) {
+              const { data } = await axios.get(`https://fantasy.premierleague.com/api/element-summary/${element}/`);
+              captainCache.set(element, data);
+            }
+
+            const elementData = captainCache.get(element);
+            const historyItem = elementData?.history?.find(h => Number(h.round) === Number(eventId));
+            capPoints = historyItem ? historyItem.total_points * multiplier : 0;
+          }
+
+          // queue DB updates
+          picksOps.push({
+            updateOne: {
+              filter: { player: playerId, eventId },
+              update: { $set: { picks: mappedPicks } },
+              upsert: true,
+            },
+          });
+
+          tieBreakerOps.push({
+            updateOne: {
+              filter: { player: playerId, eventId },
+              update: { $set: { capPoints, benchPoints } },
+              upsert: true,
+            },
+          });
+
+          pointsOps.push(
+            ...events.map(e => ({
+              updateOne: {
+                filter: { player: playerId, eventId: e.event },
+                update: {
+                  $set: {
+                    player: playerId,
+                    eventId: e.event,
+                    eventPoints: e.points,
+                    eventTransfersCost: e.event_transfers_cost,
+                    overallRank: e.overall_rank,
+                    totalPoints: e.total_points,
+                  },
+                },
+                upsert: true,
+              },
+            }))
+          );
+
+          console.log(`Queued sync for @${player.xHandle}`);
+        } catch (err) {
+          console.error(`Error syncing @${player.xHandle}:`, err.message);
+        }
+      })
+    )
+  );
+
+  // flush all bulk ops at once
+  await Promise.all([
+    picksOps.length && Picks.bulkWrite(picksOps),
+    tieBreakerOps.length && TieBreaker.bulkWrite(tieBreakerOps),
+    pointsOps.length && PlayerEventPoints.bulkWrite(pointsOps),
+  ]);
+
+  res.status(200).json({ message: "Player event points updated successfully." });
 });
 
 
