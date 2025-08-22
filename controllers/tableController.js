@@ -57,10 +57,12 @@ const Player = await getModel(dbName, "Player", playerSchema);
   const table = await PlayerTable.find().populate("player").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
-    const gdA = a.goalsFor - a.goalsAgainst;
-    const gdB = b.goalsFor - b.goalsAgainst;
+    const gdA = a.pointsFor - a.pointsAgainst;
+    const gdB = b.pointsFor - b.pointsAgainst;
     if (gdB !== gdA) return gdB - gdA;
-    return b.goalsFor - a.goalsFor;
+    if (b.pointsFor !== a.pointsFor)
+    return b.pointsFor - a.pointsFor;
+    return a.player.fplId - b.player.fplId
   });
   res.json(sorted);
 });
