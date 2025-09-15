@@ -94,6 +94,7 @@ const getPlayers = asyncHandler(async (req, res) => {
     // Map playerId => { overallPoints, overallRank }
     playerPoints.forEach(pp => {
       playerPointsMap.set(pp.player.toString(), {
+        eventPoints: (pp.eventPoints - pp.eventTransfersCost) || 0,
         overallPoints: pp.totalPoints || 0,
         overallRank: pp.overallRank ?? null,
       });
@@ -102,12 +103,14 @@ const getPlayers = asyncHandler(async (req, res) => {
 
   const response = players.map(player => {
     const points = playerPointsMap.get(player._id.toString()) || {
+      eventPoints: 0,
       overallPoints: 0,
       overallRank: null,
     };
 
     return {
       ...player.toObject(),
+      eventPoints: points.eventPoints,
       overallPoints: points.overallPoints,
       overallRank: points.overallRank,
     };
