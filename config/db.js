@@ -15,17 +15,13 @@ export default connectDB*/
 import mongoose from "mongoose";
 
 const connections = {};
-const baseUri = process.env.MONGO_URI;
-
+const baseUri = "mongodb+srv://denismoini09:axeY1ndhdWei6sPd@x5aside.m8cfakc.mongodb.net/";
+console.log(process.env)
 const connectDb = async (dbName) => {
   if (connections[dbName]) return connections[dbName];
-//console.
   const fullUri = `${baseUri}${dbName}?retryWrites=true&w=majority`;
   console.log(fullUri);
-  const conn = mongoose.createConnection(fullUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  const conn = mongoose.createConnection(fullUri);
   console.log(`MongoDB connected: ${conn.host}`);
 
   connections[dbName] = conn;

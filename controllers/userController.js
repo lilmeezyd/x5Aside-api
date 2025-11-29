@@ -49,6 +49,18 @@ const logout = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "User logged out" });
 });
 
+const getProfile = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  res.status(200).json({
+    _id: req.user._id,
+    name: req.user.name,
+    email: req.user.email,
+  });
+};
+
 const generateToken = (res, userId) => {
     const token = jwt.sign({userId}, process.env.JWT_SECRET, {expiresIn: '30d'})
     res.cookie('jwt', token, {
@@ -59,4 +71,4 @@ const generateToken = (res, userId) => {
     })
 }
 
-export { register, login, logout };
+export { register, login, logout, getProfile };

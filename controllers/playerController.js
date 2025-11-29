@@ -15,37 +15,112 @@ import axios from "axios";
 import { getModel } from "../config/db.js";
 
 const createPlayer = asyncHandler(async (req, res) => {
-  const { xHandle, fplId, position, team } = req.body;
+  const { xHandle, fplId, position, team, startPrice } = req.body;
   const dbName = req.query.dbName || req.body?.dbName;
+
   const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
+  );
+  const PlayerFixture = await getModel(
+    dbName,
+    "PlayerFixture",
+    playerFixtureSchema
+  );
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
-  
+  const Event = await getModel(dbName, "Event", eventSchema);
+
   if (!fplId || !position || !team) {
     res.status(400);
-    console.log("Invalid data");
     throw new Error("Invalid data");
   }
-  const playerExists = await Player.findOne({ fplId });
-  if (playerExists) {
+
+  const existingPlayer = await Player.findOne({ fplId });
+  if (existingPlayer) {
     res.status(400);
-    console.log("Fpl Id already taken")
-    throw new Error("Fpl Id already exists");
+    throw new Error("FPL ID already exists");
   }
-  const positionTaken = await Player.find({ position, team });
-  console.log(positionTaken);
-  if (positionTaken.length > 0) {
-    res.status(400);
-    throw new Error("Position already taken");
+
+  const event = await Event.findOne({ current: true });
+  const eventId = Number(event?.eventId) || 0;
+  const startGW = eventId + 1;
+
+  const conflictingPlayers = await Player.find({
+    position,
+    team,
+    isActive: true,
+  }).lean();
+
+  const playerTeamFixtures = await PlayerFixture.find({
+    $or: [{ homeTeam: team }, { awayTeam: team }],
+    position,
+    eventId: { $gte: startGW },
+  });
+
+  if (conflictingPlayers.length) {
+    const futurePlayers = conflictingPlayers.filter((p) => p.startGW > eventId);
+    const activePlayers = conflictingPlayers.filter(
+      (p) => p.startGW <= eventId
+    );
+
+    // Hard delete invalid future players
+    if (futurePlayers.length) {
+      const ids = futurePlayers.map((p) => p._id);
+
+      await Promise.all([
+        PlayerTable.deleteMany({ player: { $in: ids } }),
+        PlayerFixture.deleteMany({ player: { $in: ids } }),
+        PlayerEventPoints.deleteMany({ player: { $in: ids } }),
+        Leaderboard.deleteMany({ player: { $in: ids } }),
+        Team.updateMany(
+          { players: { $in: ids } },
+          { $pull: { players: { $in: ids } } }
+        ),
+        Player.deleteMany({ _id: { $in: ids } }),
+        PlayerFixture.updateMany(
+          { homePlayer: { $in: ids }, position, eventId: { $gte: startGW } },
+          { $unset: { homePlayer: "" } }
+        ),
+        PlayerFixture.updateMany(
+          { awayPlayer: { $in: ids }, position, eventId: { $gte: startGW } },
+          { $unset: { awayPlayer: "" } }
+        ),
+      ]);
+    }
+
+    // Soft disable current players
+    if (activePlayers.length) {
+      const ids = activePlayers.map((p) => p._id);
+      await Promise.all([
+        PlayerFixture.updateMany(
+          { homePlayer: { $in: ids }, position, eventId: { $gte: startGW } },
+          { $unset: { homePlayer: "" } }
+        ),
+        PlayerFixture.updateMany(
+          { awayPlayer: { $in: ids }, position, eventId: { $gte: startGW } },
+          { $unset: { awayPlayer: "" } }
+        ),
+        Player.updateMany(
+        { _id: { $in: ids } },
+        { $set: { isActive: false, endGW: eventId } }
+      )
+      ]);
+
+    }
   }
+
   const data = await fetchData(fplId);
-  const { teamName, manager } = data;
-  if (team === null) {
+  if (!data) {
     res.status(400);
-    throw new Error("No team added");
+    throw new Error("Unable to fetch FPL data");
   }
-  
-  const playerTeam = await Team.findById(team);
+
+  const { teamName, manager } = data;
+
   const player = await Player.create({
     teamName,
     manager,
@@ -53,7 +128,13 @@ const createPlayer = asyncHandler(async (req, res) => {
     fplId,
     position,
     team,
+    startPrice: +startPrice,
+    currentPrice: +startPrice,
+    delta: 0,
+    startGW,
+    isActive: true,
   });
+
   await PlayerTable.create({
     player: player._id,
     played: 0,
@@ -62,24 +143,34 @@ const createPlayer = asyncHandler(async (req, res) => {
     losses: 0,
     points: 0,
   });
-  playerTeam.players.push(player.id);
-  await playerTeam.save();
+
+  await Team.updateOne({ _id: team }, { $push: { players: player._id } });
+
+  if (playerTeamFixtures.length > 0) {
+    await PlayerFixture.updateMany(
+      { homeTeam: team, position, eventId: { $gte: startGW } },
+      { $set: { homePlayer: player._id } }
+    );
+
+    await PlayerFixture.updateMany(
+      { awayTeam: team, position, eventId: { $gte: startGW } },
+      { $set: { awayPlayer: player._id } }
+    );
+  }
+
   res.json({ manager: player.manager });
 });
-/*const getPlayers = asyncHandler(async (req, res) => {
-  const dbName =req.query.dbName || req.body?.dbName || "";
-  const Player = await getModel(dbName, "Player", playerSchema);
-  const Team = await getModel(dbName, "Team", teamSchema);
-  
-  const players = await Player.find({}).populate("team");
-  res.json(players);
-});*/
+
 const getPlayers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Event = await getModel(dbName, "Event", eventSchema);
-  const PlayerPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const PlayerPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
+  );
 
   const event = await Event.findOne({ current: true });
   const { eventId } = event || {};
@@ -92,16 +183,16 @@ const getPlayers = asyncHandler(async (req, res) => {
     const playerPoints = await PlayerPoints.find({ eventId });
 
     // Map playerId => { overallPoints, overallRank }
-    playerPoints.forEach(pp => {
+    playerPoints.forEach((pp) => {
       playerPointsMap.set(pp.player.toString(), {
-        eventPoints: (pp.eventPoints - pp.eventTransfersCost) || 0,
+        eventPoints: pp.eventPoints - pp.eventTransfersCost || 0,
         overallPoints: pp.totalPoints || 0,
         overallRank: pp.overallRank ?? null,
       });
     });
   }
 
-  const response = players.map(player => {
+  const response = players.map((player) => {
     const points = playerPointsMap.get(player._id.toString()) || {
       eventPoints: 0,
       overallPoints: 0,
@@ -122,8 +213,16 @@ const getPlayers = asyncHandler(async (req, res) => {
 const deleteAllPlayers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
-  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
-  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
+  );
+  const PlayerFixture = await getModel(
+    dbName,
+    "PlayerFixture",
+    playerFixtureSchema
+  );
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
@@ -136,7 +235,7 @@ const deleteAllPlayers = asyncHandler(async (req, res) => {
     {},
     {
       $set: { players: [] },
-    },
+    }
   );
   res.json({ message: "All players deleted" });
 });
@@ -144,13 +243,21 @@ const deleteAllPlayers = asyncHandler(async (req, res) => {
 const deletePlayer = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
-  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
-  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
-  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema); 
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
+  );
+  const PlayerFixture = await getModel(
+    dbName,
+    "PlayerFixture",
+    playerFixtureSchema
+  );
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const player = await Player.findById(req.params.id);
-  
+
   if (player) {
     await Player.deleteOne({ _id: player._id }); // Use deleteOne instead of remove
     await PlayerEventPoints.deleteMany({ player: player._id });
@@ -159,7 +266,7 @@ const deletePlayer = asyncHandler(async (req, res) => {
     await Leaderboard.deleteOne({ player: player._id });
     await Team.updateOne(
       { _id: player.team },
-      { $pull: { players: player._id } },
+      { $pull: { players: player._id } }
     );
     res.json({ message: "Player removed" });
   } else {
@@ -171,10 +278,9 @@ const deletePlayer = asyncHandler(async (req, res) => {
 const updatePlayer = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
-  const { fplId, position } = req.body
-  if (!fplId || !position) {
+  const { fplId, position, startPrice, currentPrice } = req.body;
+  if (!fplId || !position || !startPrice || !currentPrice) {
     res.status(400);
-    console.log("Invalid data");
     throw new Error("Invalid data");
   }
   /*const playerExists = await Player.findOne({ fplId });
@@ -186,148 +292,33 @@ const updatePlayer = asyncHandler(async (req, res) => {
 
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
+  const delta = Number(currentPrice) - Number(startPrice);
   const updatedPlayer = await Player.updateOne(
     { _id: req.params.id },
-    {$set: {teamName, manager, position, fplId}},
+    {
+      $set: {
+        teamName,
+        manager,
+        position,
+        fplId,
+        startPrice: Number(startPrice),
+        currentPrice: Number(currentPrice),
+        delta,
+      },
+    }
   );
   res.json({ message: `Player ${updatedPlayer.manager} updated` });
 });
-/*
+
 const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
 
   const Player = await getModel(dbName, "Player", playerSchema);
-  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
-  const TieBreaker = await getModel(dbName, "TieBreaker", tieBreakerSchema);
-  const Event = await getModel(dbName, "Event", eventSchema);
-  const Picks = await getModel(dbName, "Picks", picksSchema);
-
-  const event = await Event.findOne({ current: true });
-  if (!event) {
-    res.status(404);
-    throw new Error("No current event running");
-  }
-
-  const { eventId } = event;
-
-
-  const { data: bootstrap } = await axios.get(
-    "https://fantasy.premierleague.com/api/bootstrap-static"
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
   );
-  const { elements } = bootstrap;
-
-  try {
-    const players = await Player.find({});
-    const captainCache = new Map();
-
-    for (const player of players) {
-      try {
-        const { fplId, _id: playerId } = player;
-
-        const [historyRes, picksRes] = await Promise.all([
-          axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/history/`),
-          axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/event/${eventId}/picks/`)
-        ]);
-
-        const events = historyRes.data?.current?.filter(e => e.event === eventId) || [];
-        if (events.length === 0) {
-          console.log(`No current event data for @${player.xHandle}`);
-          continue;
-        }
-
-        const picks = picksRes.data?.picks || [];
-        const benchPoints = picksRes.data?.entry_history?.points_on_bench || 0;
-
-        // Map picks to store names + multipliers
-        const mappedPicks = picks.filter(p => p.multiplier > 0).map(pick => {
-          const el = elements.find(e => e.id === pick.element);
-          return {
-            webName: el?.web_name || "Unknown",
-            element: pick.element,
-            multiplier: pick.multiplier
-          };
-        });
-
-        
-        const captainPick = picks.find(p => p.multiplier > 1);
-        let capPoints = 0;
-        if (captainPick) {
-          const { element, multiplier } = captainPick;
-
-          if (!captainCache.has(element)) {
-            const { data } = await axios.get(
-              `https://fantasy.premierleague.com/api/element-summary/${element}/`
-            );
-            captainCache.set(element, data);
-          }
-
-          const elementData = captainCache.get(element);
-          const historyItem = elementData?.history?.find(
-            h => Number(h.round) === Number(eventId)
-          );
-          capPoints = historyItem ? historyItem.total_points * multiplier : 0;
-        }
-
-        
-        await Promise.all([
-          Picks.bulkWrite([
-            {
-              updateOne: {
-                filter: { player: playerId, eventId },
-                update: { $set: { picks: mappedPicks } },
-                upsert: true
-              }
-            }
-          ]),
-          TieBreaker.bulkWrite([
-            {
-              updateOne: {
-                filter: { player: playerId, eventId },
-                update: { $set: { capPoints, benchPoints } },
-                upsert: true
-              }
-            }
-          ]),
-          PlayerEventPoints.bulkWrite(
-            events.map(e => ({
-              updateOne: {
-                filter: { player: playerId, eventId: e.event },
-                update: {
-                  $set: {
-                    player: playerId,
-                    eventId: e.event,
-                    eventPoints: e.points,
-                    eventTransfersCost: e.event_transfers_cost,
-                    overallRank: e.overall_rank,
-                    totalPoints: e.total_points,
-                  }
-                },
-                upsert: true
-              }
-            }))
-          )
-        ]);
-
-        console.log(`Synced event ${eventId} for @${player.xHandle}`);
-      } catch (err) {
-        console.error(`Error syncing @${player.xHandle}:`, err);
-      }
-    }
-
-    res.status(200).json({ message: "Player event points updated successfully." });
-  } catch (err) {
-    console.error("Main error:", err);
-    res.status(500).json({ error: "Failed to sync player event points." });
-  }
-});
-*/
-
-
-const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName;
-
-  const Player = await getModel(dbName, "Player", playerSchema);
-  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
   const TieBreaker = await getModel(dbName, "TieBreaker", tieBreakerSchema);
   const Event = await getModel(dbName, "Event", eventSchema);
   const Picks = await getModel(dbName, "Picks", picksSchema);
@@ -340,10 +331,14 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   const { eventId } = event;
 
   // bootstrap once
-  const { data: bootstrap } = await axios.get("https://fantasy.premierleague.com/api/bootstrap-static");
-  const elementMap = Object.fromEntries(bootstrap.elements.map(e => [e.id, e]));
+  const { data: bootstrap } = await axios.get(
+    "https://fantasy.premierleague.com/api/bootstrap-static"
+  );
+  const elementMap = Object.fromEntries(
+    bootstrap.elements.map((e) => [e.id, e])
+  );
 
-  const players = await Player.find({});
+  const players = await Player.find({ endGW: { $gte: eventId } });
   const captainCache = new Map();
 
   // collect bulk ops
@@ -355,92 +350,107 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   const limit = pLimit(10); // at most 10 players at a time
 
   await Promise.all(
-    players.map(player =>
-      limit(async () => {
-        try {
-          const { fplId, _id: playerId } = player;
+    players
+      .filter((player) => player.endGW >= eventId)
+      .map((player) =>
+        limit(async () => {
+          try {
+            const { fplId, _id: playerId } = player;
 
-          const [historyRes, picksRes] = await Promise.all([
-            axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/history/`),
-            axios.get(`https://fantasy.premierleague.com/api/entry/${fplId}/event/${eventId}/picks/`),
-          ]);
+            const [historyRes, picksRes] = await Promise.all([
+              axios.get(
+                `https://fantasy.premierleague.com/api/entry/${fplId}/history/`
+              ),
+              axios.get(
+                `https://fantasy.premierleague.com/api/entry/${fplId}/event/${eventId}/picks/`
+              ),
+            ]);
 
-          const events = historyRes.data?.current?.filter(e => e.event === eventId) || [];
-          if (!events.length) {
-            console.log(`No current event data for @${player.xHandle}`);
-            return;
-          }
-
-          const picks = picksRes.data?.picks || [];
-          const benchPoints = picksRes.data?.entry_history?.points_on_bench || 0;
-
-          // mapped picks (fast O(1) lookup with elementMap)
-          const mappedPicks = picks
-            .filter(p => p.multiplier > 0)
-            .map(p => ({
-              webName: elementMap[p.element]?.web_name || "Unknown",
-              element: p.element,
-              multiplier: p.multiplier,
-            }));
-
-          // captain points
-          let capPoints = 0;
-          const captainPick = picks.find(p => p.multiplier > 1);
-          if (captainPick) {
-            const { element, multiplier } = captainPick;
-
-            if (!captainCache.has(element)) {
-              const { data } = await axios.get(`https://fantasy.premierleague.com/api/element-summary/${element}/`);
-              captainCache.set(element, data);
+            const events =
+              historyRes.data?.current?.filter((e) => e.event === eventId) ||
+              [];
+            if (!events.length) {
+              console.log(`No current event data for @${player.xHandle}`);
+              return;
             }
 
-            const elementData = captainCache.get(element);
-            const historyItem = elementData?.history?.find(h => Number(h.round) === Number(eventId));
-            capPoints = historyItem ? historyItem.total_points * multiplier : 0;
-          }
+            const picks = picksRes.data?.picks || [];
+            const benchPoints =
+              picksRes.data?.entry_history?.points_on_bench || 0;
 
-          // queue DB updates
-          picksOps.push({
-            updateOne: {
-              filter: { player: playerId, eventId },
-              update: { $set: { picks: mappedPicks } },
-              upsert: true,
-            },
-          });
+            // mapped picks (fast O(1) lookup with elementMap)
+            const mappedPicks = picks
+              .filter((p) => p.multiplier > 0)
+              .map((p) => ({
+                webName: elementMap[p.element]?.web_name || "Unknown",
+                element: p.element,
+                multiplier: p.multiplier,
+              }));
 
-          tieBreakerOps.push({
-            updateOne: {
-              filter: { player: playerId, eventId },
-              update: { $set: { capPoints, benchPoints } },
-              upsert: true,
-            },
-          });
+            // captain points
+            let capPoints = 0;
+            const captainPick = picks.find((p) => p.multiplier > 1);
+            if (captainPick) {
+              const { element, multiplier } = captainPick;
 
-          pointsOps.push(
-            ...events.map(e => ({
+              if (!captainCache.has(element)) {
+                const { data } = await axios.get(
+                  `https://fantasy.premierleague.com/api/element-summary/${element}/`
+                );
+                captainCache.set(element, data);
+              }
+
+              const elementData = captainCache.get(element);
+              const historyItem = elementData?.history?.find(
+                (h) => Number(h.round) === Number(eventId)
+              );
+              capPoints = historyItem
+                ? historyItem.total_points * multiplier
+                : 0;
+            }
+
+            // queue DB updates
+            picksOps.push({
               updateOne: {
-                filter: { player: playerId, eventId: e.event },
-                update: {
-                  $set: {
-                    player: playerId,
-                    eventId: e.event,
-                    eventPoints: e.points,
-                    eventTransfersCost: e.event_transfers_cost,
-                    overallRank: e.overall_rank,
-                    totalPoints: e.total_points,
-                  },
-                },
+                filter: { player: playerId, eventId },
+                update: { $set: { picks: mappedPicks } },
                 upsert: true,
               },
-            }))
-          );
+            });
 
-          console.log(`Queued sync for @${player.xHandle}`);
-        } catch (err) {
-          console.error(`Error syncing @${player.xHandle}:`, err.message);
-        }
-      })
-    )
+            tieBreakerOps.push({
+              updateOne: {
+                filter: { player: playerId, eventId },
+                update: { $set: { capPoints, benchPoints } },
+                upsert: true,
+              },
+            });
+
+            pointsOps.push(
+              ...events.map((e) => ({
+                updateOne: {
+                  filter: { player: playerId, eventId: e.event },
+                  update: {
+                    $set: {
+                      player: playerId,
+                      eventId: e.event,
+                      eventPoints: e.points,
+                      eventTransfersCost: e.event_transfers_cost,
+                      overallRank: e.overall_rank,
+                      totalPoints: e.total_points,
+                    },
+                  },
+                  upsert: true,
+                },
+              }))
+            );
+
+            console.log(`Queued sync for @${player.xHandle}`);
+          } catch (err) {
+            console.error(`Error syncing @${player.xHandle}:`, err.message);
+          }
+        })
+      )
   );
 
   // flush all bulk ops at once
@@ -450,14 +460,18 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
     pointsOps.length && PlayerEventPoints.bulkWrite(pointsOps),
   ]);
 
-  res.status(200).json({ message: "Player event points updated successfully." });
+  res
+    .status(200)
+    .json({ message: "Player event points updated successfully." });
 });
-
-
 
 const getPlayerEventPoints = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
-  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
+  );
   try {
     const { playerId } = req.params;
     const playerEventPoints = await PlayerEventPoints.find({
@@ -478,10 +492,10 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
   const event = await Event.findOne({ current: true });
   if (!event) {
     res.status(404);
-    throw new Erro("No current Gw running");
+    throw new Error("No current Gw running");
   }
   const { eventId } = event;
-  const fixtures = await Fixture.find({ eventId: { $lte: eventId }});
+  const fixtures = await Fixture.find({ eventId: { $lte: eventId } });
   const goalsScorers = [];
   for (const fixture of fixtures) {
     const { homeStats, awayStats } = fixture;
@@ -518,11 +532,13 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
 });
 const getLeadingScorers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
-  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema); 
-  const Player = await getModel(dbName, "Player", playerSchema); 
+  const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
-  
-  const leadingScorers = await Leaderboard.find({}).sort({goals: -1}).populate("player");
+
+  const leadingScorers = await Leaderboard.find({})
+    .sort({ goals: -1 })
+    .populate("player");
   res.json(leadingScorers);
 });
 

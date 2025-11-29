@@ -16,7 +16,8 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 const allowedOrigins = [
   "https://x5-aside.vercel.app",
-"https://661a859e-215d-4ee7-ad03-221007b9ef75-00-yr7tnm5anqkz.picard.replit.dev"
+"https://661a859e-215d-4ee7-ad03-221007b9ef75-00-yr7tnm5anqkz.picard.replit.dev",
+"http://localhost:5173"
 ]
 
 app.use(

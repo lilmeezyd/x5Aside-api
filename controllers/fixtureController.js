@@ -233,7 +233,7 @@ breakerMap[b.player] = { capPoints: b.capPoints, benchPoints: b.benchPoints }
   }
 
   // Cache all players and group them by teamId
-  const allPlayers = await Player.find({}).lean();
+  const allPlayers = await Player.find({endGW: { $gte: eventId}}).lean();
   const playersByTeam = {};
   for (const p of allPlayers) {
     const tid = p.team.toString();
@@ -422,7 +422,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
     teamMap[team.id] = team._id.toString();
   }
 
-  const allPlayers = await Player.find({}).lean();
+  const allPlayers = await Player.find({endGW: { $gte: eventId}}).lean();
   const playersByTeam = {};
   for (const player of allPlayers) {
     const teamId = player.team.toString();
@@ -543,10 +543,10 @@ const createPlayerFixtures = asyncHandler(async (req, res) => {
   const { eventId } = event;
   const allTeams = await Team.find({});
   const allHaveFivePlayers = allTeams.every(team => team.players?.length === 5);
-if(!allHaveFivePlayers) {
+/*if(!allHaveFivePlayers) {
   res.status(404);
   throw new Error('Some teams do not have 5 players');
-}
+}*/
   await PlayerFixture.deleteMany({ eventId: { $gte: eventId } });
 
   const fixtures = await Fixture.find({ eventId: { $gte: eventId } });
@@ -560,7 +560,7 @@ if(!allHaveFivePlayers) {
   }
 
   // Preload all players and group them by teamId and position
-  const allPlayers = await Player.find({});
+  const allPlayers = await Player.find({endGW: { $gte: eventId}});
   const playersByTeam = {};
 
   for (const player of allPlayers) {
@@ -608,7 +608,7 @@ if(!allHaveFivePlayers) {
     await PlayerFixture.bulkWrite(bulkOps);
   }
 
-  res.json({ message: "Player fixtures successfully created" });
+  res.json({ allPlayers, message: "Player fixtures successfully created" });
 });
 
 

@@ -9,10 +9,11 @@
     "transform": {}
   },
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "start": "node server.js",
+    "server": "nodemon server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "DENIS MOINI",
   "license": "ISC",
   "dependencies": {
     "@types/node": "^22.13.11",
@@ -20,7 +21,7 @@
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "express-async-handler": "^1.2.0",
     "imagekit": "^6.0.0",
@@ -28,6 +29,7 @@
     "mongoose": "^8.15.1",
     "multer": "^2.0.2",
     "node-cron": "^4.1.0",
+    "nodemon": "^3.1.11",
     "p-limit": "^7.0.0"
   },
   "devDependencies": {

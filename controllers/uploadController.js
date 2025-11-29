@@ -5,9 +5,9 @@ import { getModel } from "../config/db.js";
 import ImageKit from "imagekit";
 
 const imagekit = new ImageKit({
-  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
-  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+  publicKey: "public_3mlFIPEJClyIcClD9DpRy722ej8=",
+  privateKey: "private_D1PQcI+sV3dUAzhFKm+/VFpH5x4=",
+  urlEndpoint: "https://ik.imagekit.io/cap10",
 });
 
 // Initialize Images for all events (empty slots)
