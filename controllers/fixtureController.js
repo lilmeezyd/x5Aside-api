@@ -233,7 +233,7 @@ breakerMap[b.player] = { capPoints: b.capPoints, benchPoints: b.benchPoints }
   }
 
   // Cache all players and group them by teamId
-  const allPlayers = await Player.find({endGW: { $gte: eventId}}).lean();
+  const allPlayers = await Player.find({startGW: { $lte: eventId}}).lean();
   const playersByTeam = {};
   for (const p of allPlayers) {
     const tid = p.team.toString();
@@ -422,7 +422,7 @@ const calculateH2HScores = asyncHandler(async (req, res) => {
     teamMap[team.id] = team._id.toString();
   }
 
-  const allPlayers = await Player.find({endGW: { $gte: eventId}}).lean();
+  const allPlayers = await Player.find({startGW: { $lte: eventId}}).lean();
   const playersByTeam = {};
   for (const player of allPlayers) {
     const teamId = player.team.toString();

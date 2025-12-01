@@ -411,7 +411,7 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
   const [teams, events, allPlayers, allPoints] = await Promise.all([
     Team.find({}),
     Event.find({ eventId: { $lte: eventId } }).sort({ eventId: 1 }),
-    Player.find({ endGW: { $gte: eventId } }),
+    Player.find({ startGW: { $lte: eventId } }),
     PlayerEventPoints.find({ eventId }),
   ]);
 
