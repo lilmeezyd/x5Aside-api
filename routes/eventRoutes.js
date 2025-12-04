@@ -1,12 +1,13 @@
 import express from 'express';
 const router = express.Router();
 import { protect } from '../middleware/authMiddleware.js';
-import { fetchEvents, getEvents,
+import { fetchEvents, getEvents, getCurrentEvent,
        setCurrentEvent, resetEvents} from '../controllers/eventController.js';
 import { cronAuth } from '../middleware/cronMiddleware.js'
 
 router.get('/fetch-events', fetchEvents);
 router.get('/', getEvents);
+router.get('/current', getCurrentEvent)
 router.patch('/set-current-event', setCurrentEvent);
 router.patch('/reset', resetEvents);
 

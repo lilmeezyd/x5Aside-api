@@ -201,6 +201,7 @@ const getPlayers = asyncHandler(async (req, res) => {
 
     return {
       ...player.toObject(),
+      eventId,
       eventPoints: points.eventPoints,
       overallPoints: points.overallPoints,
       overallRank: points.overallRank,

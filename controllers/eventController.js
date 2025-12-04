@@ -121,3 +121,13 @@ export const resetEvents = asyncHandler(async (req, res) => {
     .status(200)
     .json({ message: "All events reset. Event 1 is marked as next." });
 });
+
+export const getCurrentEvent = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Event = await getModel(dbName, "Event", eventSchema);
+
+  const event = await Event.findOne({current: true});
+  const { eventId } = event;
+
+  res.status(200).json(eventId);
+})
