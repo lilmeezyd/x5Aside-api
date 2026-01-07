@@ -6,14 +6,15 @@ import playerTableSchema from "../models/playerTableModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
 import playerSchema from "../models/playerModel.js";
+import eventSchema from "../models/eventModel.js";
 import { getModel } from "../config/db.js";
 
 const getClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
-  const dbName = req.query.dbName || req.body?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
-  
+
   const table = await TeamClassic.find().populate("team").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -33,7 +34,7 @@ const getH2HTable = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName || "";
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
-  
+
   const table = await TeamH2H.find().populate("team").lean();
   const sorted = table.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
@@ -48,21 +49,22 @@ const getH2HTable = asyncHandler(async (req, res) => {
   res.json(sorted);
 });
 
-
 const getPlayerTable = asyncHandler(async (req, res) => {
-  const eventId = parseInt(req.query.eventId);
   const dbName = req.query.dbName || req.body?.dbName || "";
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
-const Player = await getModel(dbName, "Player", playerSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
   const table = await PlayerTable.find().populate("player").lean();
-  const sorted = table.sort((a, b) => {
+
+  const event = await Event.findOne({ current: true });
+  const { eventId } = event || {};
+  const sorted = table.map(x => { return {...x, eventId}}).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.pointsFor - a.pointsAgainst;
     const gdB = b.pointsFor - b.pointsAgainst;
     if (gdB !== gdA) return gdB - gdA;
-    if (b.pointsFor !== a.pointsFor)
-    return b.pointsFor - a.pointsFor;
-    return a.player.fplId - b.player.fplId
+    if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+    return a.player.fplId - b.player.fplId;
   });
   res.json(sorted);
 });
@@ -76,18 +78,18 @@ const updateClassicTable = asyncHandler(async (req, res) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
-  await TeamClassic.deleteMany({})
+  await TeamClassic.deleteMany({});
 
   const fixtures = await Fixture.find({});
   const teams = await Team.find({});
-  
+
   const eventId = parseInt(req.params.eventId); // optional
 
   const teamIdMap = {};
   for (const team of teams) {
     teamIdMap[team.id] = team._id.toString();
   }
-  
+
   // Group fixtures by team _id
   const fixturesByTeam = {};
   for (const fixture of fixtures) {
@@ -106,7 +108,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
   // Ensure TeamClassic table is initialized
   let table = await TeamClassic.find({});
   if (table.length === 0) {
-    const initialRows = teams.map(team => ({
+    const initialRows = teams.map((team) => ({
       team: team._id,
       played: 0,
       win: 0,
@@ -118,7 +120,7 @@ const updateClassicTable = asyncHandler(async (req, res) => {
       points: 0,
       result: [],
     }));
-    console.log(initialRows)
+    console.log(initialRows);
     await TeamClassic.insertMany(initialRows);
     table = await TeamClassic.find({});
   }
@@ -129,13 +131,22 @@ const updateClassicTable = asyncHandler(async (req, res) => {
     const tid = row.team.toString();
     const relevant = fixturesByTeam[tid] || [];
 
-    let P = 0, W = 0, D = 0, L = 0, GF = 0, GA = 0, GD = 0, points = 0;
+    let P = 0,
+      W = 0,
+      D = 0,
+      L = 0,
+      GF = 0,
+      GA = 0,
+      GD = 0,
+      points = 0;
     const results = [];
 
     for (const { fixture, isHome } of relevant) {
       const homeScore = fixture.homeScoreClassic;
       const awayScore = fixture.awayScoreClassic;
-      const result = isHome ? fixture.homeResultClassic : fixture.awayResultClassic;
+      const result = isHome
+        ? fixture.homeResultClassic
+        : fixture.awayResultClassic;
 
       if (homeScore == null || awayScore == null) continue;
 
@@ -146,16 +157,28 @@ const updateClassicTable = asyncHandler(async (req, res) => {
         GF += homeScore;
         GA += awayScore;
         GD += homeScore - awayScore;
-        if (homeScore > awayScore) { W++; points += 3; }
-        else if (homeScore < awayScore) { L++; }
-        else { D++; points += 1; }
+        if (homeScore > awayScore) {
+          W++;
+          points += 3;
+        } else if (homeScore < awayScore) {
+          L++;
+        } else {
+          D++;
+          points += 1;
+        }
       } else {
         GF += awayScore;
         GA += homeScore;
         GD += awayScore - homeScore;
-        if (awayScore > homeScore) { W++; points += 3; }
-        else if (awayScore < homeScore) { L++; }
-        else { D++; points += 1; }
+        if (awayScore > homeScore) {
+          W++;
+          points += 3;
+        } else if (awayScore < homeScore) {
+          L++;
+        } else {
+          D++;
+          points += 1;
+        }
       }
     }
 
@@ -186,8 +209,6 @@ const updateClassicTable = asyncHandler(async (req, res) => {
   res.json({ message: "Classic table updated successfully" });
 });
 
-
-
 const updateH2HTable = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   if (!dbName) {
@@ -198,7 +219,7 @@ const updateH2HTable = asyncHandler(async (req, res) => {
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const eventId = parseInt(req.params.eventId);
-await TeamH2H.deleteMany({});
+  await TeamH2H.deleteMany({});
   const fixtures = await Fixture.find({});
   const teams = await Team.find({});
 
@@ -225,7 +246,7 @@ await TeamH2H.deleteMany({});
   // Ensure H2H table is initialized
   let table = await TeamH2H.find({});
   if (table.length === 0) {
-    const initialRows = teams.map(team => ({
+    const initialRows = teams.map((team) => ({
       team: team._id,
       played: 0,
       win: 0,
@@ -247,7 +268,14 @@ await TeamH2H.deleteMany({});
     const tid = row.team.toString();
     const relevant = fixturesByTeam[tid] || [];
 
-    let P = 0, W = 0, D = 0, L = 0, GF = 0, GA = 0, GD = 0, points = 0;
+    let P = 0,
+      W = 0,
+      D = 0,
+      L = 0,
+      GF = 0,
+      GA = 0,
+      GD = 0,
+      points = 0;
     const results = [];
 
     for (const { fixture, isHome } of relevant) {
@@ -264,16 +292,28 @@ await TeamH2H.deleteMany({});
         GF += homeScore;
         GA += awayScore;
         GD += homeScore - awayScore;
-        if (homeScore > awayScore) { W++; points += 3; }
-        else if (homeScore < awayScore) { L++; }
-        else { D++; points += 1; }
+        if (homeScore > awayScore) {
+          W++;
+          points += 3;
+        } else if (homeScore < awayScore) {
+          L++;
+        } else {
+          D++;
+          points += 1;
+        }
       } else {
         GF += awayScore;
         GA += homeScore;
         GD += awayScore - homeScore;
-        if (awayScore > homeScore) { W++; points += 3; }
-        else if (awayScore < homeScore) { L++; }
-        else { D++; points += 1; }
+        if (awayScore > homeScore) {
+          W++;
+          points += 3;
+        } else if (awayScore < homeScore) {
+          L++;
+        } else {
+          D++;
+          points += 1;
+        }
       }
     }
 
@@ -304,9 +344,6 @@ await TeamH2H.deleteMany({});
   res.json({ message: "H2H table updated successfully" });
 });
 
-
-
-
 const updatePlayerTable = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   if (!dbName) {
@@ -315,7 +352,11 @@ const updatePlayerTable = asyncHandler(async (req, res) => {
 
   const Team = await getModel(dbName, "Team", teamSchema);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
-  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const PlayerFixture = await getModel(
+    dbName,
+    "PlayerFixture",
+    playerFixtureSchema
+  );
   const Player = await getModel(dbName, "Player", playerSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
 
@@ -326,7 +367,7 @@ const updatePlayerTable = asyncHandler(async (req, res) => {
 
   // 🔧 If table doesn't exist, create it
   if (table.length === 0) {
-    const initial = players.map(p => ({
+    const initial = players.map((p) => ({
       player: p._id,
       teamId: p.teamId,
       position: p.position,
@@ -437,7 +478,6 @@ const updatePlayerTable = asyncHandler(async (req, res) => {
 
   res.json({ message: "Players table updated successfully" });
 });
-
 
 export {
   getClassicTable,

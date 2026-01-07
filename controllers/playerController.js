@@ -536,11 +536,16 @@ const getLeadingScorers = asyncHandler(async (req, res) => {
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+
+  const event = await Event.findOne({ current: true });
+  const { eventId } = event || {};
 
   const leadingScorers = await Leaderboard.find({})
     .sort({ goals: -1 })
-    .populate("player");
-  res.json(leadingScorers);
+    .populate("player").lean();
+    const mappedScorers = leadingScorers.map(x => { return {...x, eventId}})
+  res.json(mappedScorers);
 });
 
 export {
