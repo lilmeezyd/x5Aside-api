@@ -4,23 +4,27 @@ import teamH2HSchema from "../models/teamH2HModel.js";
 import teamSchema from "../models/teamModel.js";
 import playerSchema from "../models/playerModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
-import formulaOneSchema from "../models/formulaOneModel.js"
-import formulaOneTotalSchema from "../models/formulaOneTotalModel.js"
+import formulaOneSchema from "../models/formulaOneModel.js";
+import formulaOneTotalSchema from "../models/formulaOneTotalModel.js";
 import leaderboardSchema from "../models/leaderboardModel.js";
-import playerTableSchema from "../models/playerTableModel.js"; import playerEventPointsSchema from "../models/playerPointsModel.js";
+import playerTableSchema from "../models/playerTableModel.js";
+import playerEventPointsSchema from "../models/playerPointsModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
-import { getModel } from "../config/db.js"
+import { getModel } from "../config/db.js";
 
 const createTeam = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName; 
+  const dbName = req.query.dbName || req.body?.dbName;
   const teams = await fetchAndStoreFPLTeams(dbName);
-  
+
   //fetchAndStoreFPLTeams();
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
-const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTotalSchema);
-  
+  const FormulaOneTotal = await getModel(
+    dbName,
+    "FormulaOneTotal",
+    formulaOneTotalSchema
+  );
 
   if (!Array.isArray(teams)) {
     res.status(500);
@@ -32,10 +36,10 @@ const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTota
   const formulaOneTotalPromises = [];
 
   for (const team of teams) {
-    const [classicExists, h2hExists, formulaOneExists ] = await Promise.all([
+    const [classicExists, h2hExists, formulaOneExists] = await Promise.all([
       TeamClassic.exists({ team: team._id }),
       TeamH2H.exists({ team: team._id }),
-      FormulaOneTotal.exists({ teamId: team._id })
+      FormulaOneTotal.exists({ teamId: team._id }),
     ]);
 
     if (!classicExists) {
@@ -50,7 +54,7 @@ const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTota
           goalsAgainst: 0,
           points: 0,
           recentResults: [],
-        }),
+        })
       );
     }
 
@@ -66,42 +70,45 @@ const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTota
           goalsAgainst: 0,
           points: 0,
           recentResults: [],
-        }),
+        })
       );
     }
-    if(!formulaOneExists) {
+    if (!formulaOneExists) {
       formulaOneTotalPromises.push(
         FormulaOneTotal.create({
           teamId: team._id,
           teamName: team.name,
-          totalScore: 0})
-      )
+          totalScore: 0,
+        })
+      );
     }
   }
 
-  await Promise.all([...classicPromises, ...h2hPromises, ...formulaOneTotalPromises]);
+  await Promise.all([
+    ...classicPromises,
+    ...h2hPromises,
+    ...formulaOneTotalPromises,
+  ]);
 
   res.status(201).json({
     message: "Teams processed",
     createdClassic: classicPromises.length,
     createdH2H: h2hPromises.length,
     totalTeams: teams.length,
-    createdFormulaOneTotal: formulaOneTotalPromises.length
+    createdFormulaOneTotal: formulaOneTotalPromises.length,
   });
 });
 
 const getTeams = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName; 
+  const dbName = req.query.dbName || req.body?.dbName;
   const Team = await getModel(dbName, "Team", teamSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
-    const teams = await Team.find({})
-    .sort({ _id: 1 })
-    .populate('players');
+  const teams = await Team.find({}).sort({ _id: 1 }).populate("players");
   res.json(teams);
 });
 
 const getTeamById = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName || ""; 
+  const dbName = req.query.dbName || req.body?.dbName || "";
   const Team = await getModel(dbName, "Team", teamSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   //console.log(Fixture)
@@ -119,7 +126,7 @@ const getTeamById = asyncHandler(async (req, res) => {
 
   const fixture = await Fixture.findOne({ homeTeam: everton.id, awayTeam: liverpool.id });*/
   //console.log(fixture)
- /*fixture.eventId = 15;
+  /*fixture.eventId = 15;
   await fixture.save();
   
   const fixture3 = await Fixture.findOne({ homeTeam: villa.id, awayTeam: liverpool.id });
@@ -151,16 +158,28 @@ const getTeamById = asyncHandler(async (req, res) => {
 });
 
 const deleteAllTeams = asyncHandler(async (req, res) => {
-  const dbName = req.query.dbName || req.body?.dbName; 
+  const dbName = req.query.dbName || req.body?.dbName;
   const Team = await getModel(dbName, "Team", teamSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
-  const PlayerEventPoints = await getModel(dbName, "PlayerEventPoints", playerEventPointsSchema);
-  const PlayerFixture = await getModel(dbName, "PlayerFixture", playerFixtureSchema);
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema
+  );
+  const PlayerFixture = await getModel(
+    dbName,
+    "PlayerFixture",
+    playerFixtureSchema
+  );
   const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
-  const FormulaOneTotal = await getModel(dbName, "FormulaOneTotal", formulaOneTotalSchema);
+  const FormulaOneTotal = await getModel(
+    dbName,
+    "FormulaOneTotal",
+    formulaOneTotalSchema
+  );
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Leaderboard = await getModel(dbName, "Leaderboard", leaderboardSchema);
 
@@ -175,17 +194,16 @@ const deleteAllTeams = asyncHandler(async (req, res) => {
     Team.deleteMany({}),
     Fixture.deleteMany({}),
     TeamClassic.deleteMany({}),
-    TeamH2H.deleteMany({})
+    TeamH2H.deleteMany({}),
   ]);
 
   res.json({ message: "All teams and associated data deleted" });
 });
 
-
 const deleteTeam = asyncHandler(async (req, res) => {
   const teamId = req.params.id;
-  const dbName = req.query.dbName || req.body?.dbName || ""; 
-  const Team = await getModel(dbName, "Team", teamSchema)
+  const dbName = req.query.dbName || req.body?.dbName || "";
+  const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const team = await Team.findById(teamId);
@@ -202,5 +220,45 @@ const deleteTeam = asyncHandler(async (req, res) => {
   }
 });
 
+const getTeamTotalPoints = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
+  const totals = await FormulaOne.aggregate([
+    {
+      $group: {
+        _id: { teamName: "$teamName", id: "$id" },
+        totalPoints: { $sum: "$totalPoints" },
+        teamId: { $first: "$_id" },
+      },
+    },
+    { $sort: { totalPoints: -1, teamName: 1 } },
+    {
+      $setWindowFields: {
+        sortBy: { totalPoints: -1 },
+        output: {
+          rank: { $rank: {} },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        teamName: "$_id.teamName",
+        id: "$_id.id",
+        teamId: 1,
+        totalPoints: 1,
+        rank: 1,
+      },
+    },
+  ]);
+  res.json(totals);
+});
 
-export { createTeam, getTeams, getTeamById, deleteAllTeams, deleteTeam };
+export {
+  createTeam,
+  getTeams,
+  getTeamTotalPoints,
+  getTeamById,
+  deleteAllTeams,
+  deleteTeam,
+};
