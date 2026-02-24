@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 
 const playerTableSchema = new mongoose.Schema({
+  oldRank: { type: Number, default: 0},
+  rank: { type: Number, default: 0},
   player: { type: mongoose.Schema.Types.ObjectId, ref: "Player" },
   played: { type: Number, default: 0 },
   win: { type: Number, default: 0 },

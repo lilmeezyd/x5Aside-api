@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 
 const teamClassicSchema = new mongoose.Schema({
+  oldRank: { type: Number, default: 0},
+  rank: { type: Number, default: 0},
   team: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
   played: { type: Number, default: 0 },
   win: { type: Number, default: 0 },
@@ -12,6 +14,7 @@ const teamClassicSchema = new mongoose.Schema({
   points: { type: Number, default: 0 },
   result: [
   ],
+  next: { type: String, default: "None"}
 },{timestamps: true});
 /*export default mongoose.model("TeamClassic", teamClassicSchema);*/
 

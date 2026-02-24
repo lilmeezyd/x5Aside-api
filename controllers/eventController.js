@@ -2,6 +2,10 @@ import axios from "axios";
 import asyncHandler from "express-async-handler";
 import { getModel } from "../config/db.js";
 import eventSchema from "../models/eventModel.js";
+import teamClassicSchema from "../models/teamClassicModel.js";
+import teamH2HSchema from "../models/teamH2HModel.js";
+import playerTableSchema from "../models/playerTableModel.js";
+import formulaOneTotalSchema from "../models/formulaOneTotalModel.js";
 
 export const fetchEvents = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -45,6 +49,14 @@ export const getEvents = asyncHandler(async (req, res) => {
 export const setCurrentEvent = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Event = await getModel(dbName, "Event", eventSchema);
+  const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const FormulaOneTotal = await getModel(
+    dbName,
+    "FormulaOneTotal",
+    formulaOneTotalSchema,
+  );
 
   // Step 1: Get the current event (if any)
   const currentEvent = await Event.findOne({ current: true });
@@ -82,6 +94,11 @@ export const setCurrentEvent = asyncHandler(async (req, res) => {
   if (nextEventId <= 38) {
     await Event.updateOne({ eventId: nextEventId }, { $set: { next: true } });
   }
+
+  await TeamH2H.updateMany({}, [{$set: { oldRank: "$rank"}}])
+  await TeamClassic.updateMany({}, [{$set: { oldRank: "$rank"}}])
+  await PlayerTable.updateMany({}, [{$set: { oldRank: "$rank"}}])
+  await FormulaOneTotal.updateMany({}, [{$set: { oldRank: "$rank"}}])
 
   res.status(200).json({
     message: `Event ${nextEvent.eventId} is now current.`,

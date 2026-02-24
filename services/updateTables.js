@@ -17,126 +17,138 @@ export const updateClassicTable = async (dbName, eventId) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
-  await TeamClassic.deleteMany({});
+  const nextEventId = eventId+1
 
-  const fixtures = await Fixture.find({ eventId: { $lte: eventId } });
-  const teams = await Team.find({});
+  const teams = await Team.find({}).lean();
+  const nextFixtures = await Fixture.find({eventId: nextEventId}).lean();
+  
+  const teamNameMap = new Map(teams.map(x => [x.id, x.short_name]))
 
   const teamIdMap = {};
   for (const team of teams) {
-    teamIdMap[team.id] = team._id.toString();
+    teamIdMap[team.id] = team._id;
   }
 
-  // Group fixtures by team _id
-  const fixturesByTeam = {};
-  for (const fixture of fixtures) {
-    const homeTeamId = teamIdMap[fixture.homeTeam];
-    const awayTeamId = teamIdMap[fixture.awayTeam];
-
-    if (!homeTeamId || !awayTeamId) continue;
-
-    if (!fixturesByTeam[homeTeamId]) fixturesByTeam[homeTeamId] = [];
-    if (!fixturesByTeam[awayTeamId]) fixturesByTeam[awayTeamId] = [];
-
-    fixturesByTeam[homeTeamId].push({ fixture, isHome: true });
-    fixturesByTeam[awayTeamId].push({ fixture, isHome: false });
+  // Preserve existing rows
+  const existingTable = await TeamClassic.find({}).lean();
+  const existingMap = {};
+  for (const row of existingTable) {
+    existingMap[row.team.toString()] = row;
   }
 
-  // Ensure TeamClassic table is initialized
-  let table = await TeamClassic.find({});
-  if (table.length === 0) {
-    const initialRows = teams.map((team) => ({
-      team: team._id,
-      played: 0,
-      win: 0,
-      draw: 0,
-      loss: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      goalDifference: 0,
-      points: 0,
-      result: [],
-    }));
-    await TeamClassic.insertMany(initialRows);
-    table = await TeamClassic.find({});
-  }
-
-  const bulkOps = [];
-
-  for (const row of table) {
-    const tid = row.team.toString();
-    const relevant = fixturesByTeam[tid] || [];
-
-    let P = 0,
-      W = 0,
-      D = 0,
-      L = 0,
-      GF = 0,
-      GA = 0,
-      GD = 0,
-      points = 0;
-    const results = [];
-
-    for (const { fixture, isHome } of relevant) {
-      const homeScore = fixture.homeScoreClassic;
-      const awayScore = fixture.awayScoreClassic;
-      const result = isHome
-        ? fixture.homeResultClassic
-        : fixture.awayResultClassic;
-
-      if (homeScore == null || awayScore == null) continue;
-
-      P++;
-      results.push(result);
-
-      if (isHome) {
-        GF += homeScore;
-        GA += awayScore;
-        GD += homeScore - awayScore;
-        if (homeScore > awayScore) {
-          W++;
-          points += 3;
-        } else if (homeScore < awayScore) {
-          L++;
-        } else {
-          D++;
-          points += 1;
-        }
-      } else {
-        GF += awayScore;
-        GA += homeScore;
-        GD += awayScore - homeScore;
-        if (awayScore > homeScore) {
-          W++;
-          points += 3;
-        } else if (awayScore < homeScore) {
-          L++;
-        } else {
-          D++;
-          points += 1;
-        }
-      }
-    }
-
-    bulkOps.push({
-      updateOne: {
-        filter: { _id: row._id },
-        update: {
-          $set: {
-            played: P,
-            win: W,
-            draw: D,
-            loss: L,
-            goalsFor: GF,
-            goalsAgainst: GA,
-            goalDifference: GD,
-            points,
-            result: results,
+  const aggregated = await Fixture.aggregate([
+    { $match: { eventId: { $lte: eventId } } },
+    {
+      $project: {
+        teams: [
+          {
+            team: "$homeTeam",
+            goalsFor: "$homeScoreClassic",
+            goalsAgainst: "$awayScoreClassic",
+            result: "$homeResultClassic",
+          },
+          {
+            team: "$awayTeam",
+            goalsFor: "$awayScoreClassic",
+            goalsAgainst: "$homeScoreClassic",
+            result: "$awayResultClassic",
+          },
+        ],
+      },
+    },
+    { $unwind: "$teams" },
+    {
+      $group: {
+        _id: "$teams.team",
+        played: { $sum: 1 },
+        win: {
+          $sum: { $cond: [{ $eq: ["$teams.result.result", "W"] }, 1, 0] },
+        },
+        draw: {
+          $sum: { $cond: [{ $eq: ["$teams.result.result", "D"] }, 1, 0] },
+        },
+        loss: {
+          $sum: { $cond: [{ $eq: ["$teams.result.result", "L"] }, 1, 0] },
+        },
+        goalsFor: { $sum: "$teams.goalsFor" },
+        goalsAgainst: { $sum: "$teams.goalsAgainst" },
+        points: {
+          $sum: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$teams.result.result", "W"] }, then: 3 },
+                { case: { $eq: ["$teams.result.result", "D"] }, then: 1 },
+              ],
+              default: 0,
+            },
           },
         },
+        result: { $push: "$teams.result" },
       },
-    });
+    },
+    {
+      $addFields: {
+        goalDifference: { $subtract: ["$goalsFor", "$goalsAgainst"] },
+      },
+    },
+    {
+      $addFields: {
+        sortKey: {
+          $add: [
+            { $multiply: ["$points", 1000000000] },
+            { $multiply: ["$goalDifference", 1000000] },
+            { $multiply: ["$goalsFor", 1000] },
+            { $subtract: [1000, "$_id"] },
+          ],
+        },
+      },
+    },
+    {
+      $setWindowFields: {
+        sortBy: { sortKey: -1 },
+        output: {
+          rank: { $rank: {} },
+        },
+      },
+    },
+  ]);
+
+  const getOpponent = (teamId) => {
+    const nextFixture = nextFixtures.find(x => (x.homeTeam === teamId || x.awayTeam === teamId))
+    const nextTeam = teamId === nextFixture.homeTeam ? nextFixture.awayTeam : nextFixture.homeTeam
+    return teamNameMap.get(nextTeam)
   }
+
+  const bulkOps = aggregated.map((row) => {
+    const teamObjectId = teamIdMap[row._id];
+    const existing = existingMap[teamObjectId?.toString()];
+    const nextOpponent = (nextEventId < 38) ? getOpponent(row._id) : "None"
+
+    const oldRank = existing?.oldRank ?? row.rank;
+    const rankChange = oldRank - row.rank;
+
+    return {
+      updateOne: {
+        filter: { team: teamObjectId },
+        update: {
+          $set: {
+            played: row.played,
+            win: row.win,
+            draw: row.draw,
+            loss: row.loss,
+            goalsFor: row.goalsFor,
+            goalsAgainst: row.goalsAgainst,
+            goalDifference: row.goalDifference,
+            points: row.points,
+            result: row.result,
+            rank: row.rank,
+            next: nextOpponent
+          },
+        },
+        upsert: true,
+      },
+    };
+  });
 
   if (bulkOps.length > 0) {
     await TeamClassic.bulkWrite(bulkOps);
@@ -147,123 +159,137 @@ export const updateH2HTable = async (dbName, eventId) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
-  await TeamH2H.deleteMany({});
-  const fixtures = await Fixture.find({ eventId: { $lte: eventId } });
-  const teams = await Team.find({});
+  const nextEventId = eventId+1
+
+  const teams = await Team.find({}).lean();
+  const nextFixtures = await Fixture.find({eventId: nextEventId}).lean();
+  const teamNameMap = new Map(teams.map(x => [x.id, x.short_name]))
 
   const teamIdMap = {};
   for (const team of teams) {
-    teamIdMap[team.id] = team._id.toString();
+    teamIdMap[team.id] = team._id;
   }
 
-  // Group fixtures by teamId
-  const fixturesByTeam = {};
-  for (const fixture of fixtures) {
-    const homeTeamId = teamIdMap[fixture.homeTeam];
-    const awayTeamId = teamIdMap[fixture.awayTeam];
-
-    if (!homeTeamId || !awayTeamId) continue;
-
-    if (!fixturesByTeam[homeTeamId]) fixturesByTeam[homeTeamId] = [];
-    if (!fixturesByTeam[awayTeamId]) fixturesByTeam[awayTeamId] = [];
-
-    fixturesByTeam[homeTeamId].push({ fixture, isHome: true });
-    fixturesByTeam[awayTeamId].push({ fixture, isHome: false });
+  // Preserve existing rows
+  const existingTable = await TeamH2H.find({}).lean();
+  const existingMap = {};
+  for (const row of existingTable) {
+    existingMap[row.team.toString()] = row;
   }
 
-  // Ensure H2H table is initialized
-  let table = await TeamH2H.find({});
-  if (table.length === 0) {
-    const initialRows = teams.map((team) => ({
-      team: team._id,
-      played: 0,
-      win: 0,
-      draw: 0,
-      loss: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      goalDifference: 0,
-      points: 0,
-      result: [],
-    }));
-    await TeamH2H.insertMany(initialRows);
-    table = await TeamH2H.find({});
-  }
-
-  const bulkOps = [];
-
-  for (const row of table) {
-    const tid = row.team.toString();
-    const relevant = fixturesByTeam[tid] || [];
-
-    let P = 0,
-      W = 0,
-      D = 0,
-      L = 0,
-      GF = 0,
-      GA = 0,
-      GD = 0,
-      points = 0;
-    const results = [];
-
-    for (const { fixture, isHome } of relevant) {
-      const homeScore = fixture.homeScoreH2H;
-      const awayScore = fixture.awayScoreH2H;
-      const result = isHome ? fixture.homeResultH2H : fixture.awayResultH2H;
-
-      if (homeScore == null || awayScore == null) continue;
-
-      P++;
-      results.push(result);
-
-      if (isHome) {
-        GF += homeScore;
-        GA += awayScore;
-        GD += homeScore - awayScore;
-        if (homeScore > awayScore) {
-          W++;
-          points += 3;
-        } else if (homeScore < awayScore) {
-          L++;
-        } else {
-          D++;
-          points += 1;
-        }
-      } else {
-        GF += awayScore;
-        GA += homeScore;
-        GD += awayScore - homeScore;
-        if (awayScore > homeScore) {
-          W++;
-          points += 3;
-        } else if (awayScore < homeScore) {
-          L++;
-        } else {
-          D++;
-          points += 1;
-        }
-      }
-    }
-
-    bulkOps.push({
-      updateOne: {
-        filter: { _id: row._id },
-        update: {
-          $set: {
-            played: P,
-            win: W,
-            draw: D,
-            loss: L,
-            goalsFor: GF,
-            goalsAgainst: GA,
-            goalDifference: GD,
-            points,
-            result: results,
+  const aggregated = await Fixture.aggregate([
+    { $match: { eventId: { $lte: eventId } } },
+    {
+      $project: {
+        teams: [
+          {
+            team: "$homeTeam",
+            goalsFor: "$homeScoreH2H",
+            goalsAgainst: "$awayScoreH2H",
+            result: "$homeResultH2H",
+          },
+          {
+            team: "$awayTeam",
+            goalsFor: "$awayScoreH2H",
+            goalsAgainst: "$homeScoreH2H",
+            result: "$awayResultH2H",
+          },
+        ],
+      },
+    },
+    { $unwind: "$teams" },
+    {
+      $group: {
+        _id: "$teams.team",
+        played: { $sum: 1 },
+        win: {
+          $sum: { $cond: [{ $eq: ["$teams.result.result", "W"] }, 1, 0] },
+        },
+        draw: {
+          $sum: { $cond: [{ $eq: ["$teams.result.result", "D"] }, 1, 0] },
+        },
+        loss: {
+          $sum: { $cond: [{ $eq: ["$teams.result.result", "L"] }, 1, 0] },
+        },
+        goalsFor: { $sum: "$teams.goalsFor" },
+        goalsAgainst: { $sum: "$teams.goalsAgainst" },
+        points: {
+          $sum: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$teams.result.result", "W"] }, then: 3 },
+                { case: { $eq: ["$teams.result.result", "D"] }, then: 1 },
+              ],
+              default: 0,
+            },
           },
         },
+        result: { $push: "$teams.result" },
       },
-    });
+    },
+    {
+      $addFields: {
+        goalDifference: { $subtract: ["$goalsFor", "$goalsAgainst"] },
+      },
+    },
+    {
+      $addFields: {
+        sortKey: {
+          $add: [
+            { $multiply: ["$points", 1000000000] },
+            { $multiply: ["$goalDifference", 1000000] },
+            { $multiply: ["$goalsFor", 1000] },
+            { $subtract: [1000, "$_id"] },
+          ],
+        },
+      },
+    },
+    {
+      $setWindowFields: {
+        sortBy: { sortKey: -1 },
+        output: {
+          rank: { $rank: {} },
+        },
+      },
+    },
+  ]);
+
+  const getOpponent = (teamId) => {
+    const nextFixture = nextFixtures.find(x => (x.homeTeam === teamId || x.awayTeam === teamId))
+    const nextTeam = teamId === nextFixture.homeTeam ? nextFixture.awayTeam : nextFixture.homeTeam
+    return teamNameMap.get(nextTeam)
   }
+
+  const bulkOps = aggregated.map((row) => {
+    const teamObjectId = teamIdMap[row._id];
+    const existing = existingMap[teamObjectId?.toString()];
+    const nextOpponent = (nextEventId < 38) ? getOpponent(row._id) : "None"
+
+    const oldRank = existing?.oldRank ?? row.rank;
+    const rankChange = oldRank - row.rank;
+
+    return {
+      updateOne: {
+        filter: { team: teamObjectId },
+        update: {
+          $set: {
+            played: row.played,
+            win: row.win,
+            draw: row.draw,
+            loss: row.loss,
+            goalsFor: row.goalsFor,
+            goalsAgainst: row.goalsAgainst,
+            goalDifference: row.goalDifference,
+            points: row.points,
+            result: row.result,
+            rank: row.rank,
+            next: nextOpponent
+          },
+        },
+        upsert: true,
+      },
+    };
+  });
 
   if (bulkOps.length > 0) {
     await TeamH2H.bulkWrite(bulkOps);
@@ -276,121 +302,131 @@ export const updatePlayerTable = async (dbName, eventId) => {
   const PlayerFixture = await getModel(
     dbName,
     "PlayerFixture",
-    playerFixtureSchema
+    playerFixtureSchema,
   );
   const Player = await getModel(dbName, "Player", playerSchema);
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
-  await PlayerTable.deleteMany({});
   const fixtures = await PlayerFixture.find({ eventId: { $lte: eventId } });
   const players = await Player.find({});
   let table = await PlayerTable.find({});
 
-  //  If table doesn't exist, create it
-  if (table.length === 0) {
-    const initial = players.map((p) => ({
-      player: p._id,
-      teamId: p.teamId,
-      position: p.position,
-      played: 0,
-      win: 0,
-      draw: 0,
-      loss: 0,
-      pointsFor: 0,
-      pointsAgainst: 0,
-      pointsDifference: 0,
-      points: 0,
-      result: [],
-    }));
-    await PlayerTable.insertMany(initial);
-    table = await PlayerTable.find({});
-  }
-
-  // 1. Group fixtures by player ID
-  const playerFixturesMap = {};
-
-  for (const fixture of fixtures) {
-    const homeId = fixture.homePlayer?.toString();
-    const awayId = fixture.awayPlayer?.toString();
-
-    if (homeId) {
-      if (!playerFixturesMap[homeId]) playerFixturesMap[homeId] = [];
-      playerFixturesMap[homeId].push({
-        isHome: true,
-        score: fixture.homeScore,
-        oppScore: fixture.awayScore,
-        result: fixture.homeResult,
-      });
-    }
-
-    if (awayId) {
-      if (!playerFixturesMap[awayId]) playerFixturesMap[awayId] = [];
-      playerFixturesMap[awayId].push({
-        isHome: false,
-        score: fixture.awayScore,
-        oppScore: fixture.homeScore,
-        result: fixture.awayResult,
-      });
-    }
-  }
-
-  // 2. Bulk update player rows
-  const bulkOps = [];
-
-  for (const row of table) {
-    const pid = row.player.toString();
-    const data = playerFixturesMap[pid] || [];
-
-    let totalPoints = 0;
-    let GF = 0;
-    let GA = 0;
-    let W = 0;
-    let D = 0;
-    let L = 0;
-    let P = 0;
-    let GD = 0;
-    const results = [];
-
-    for (const match of data) {
-      const { score, oppScore, result } = match;
-
-      if (score == null || oppScore == null) continue;
-
-      P++;
-      GF += score;
-      GA += oppScore;
-      GD += score - oppScore;
-      results.push(result);
-
-      if (score > oppScore) {
-        W++;
-        totalPoints += 3;
-      } else if (score < oppScore) {
-        L++;
-      } else {
-        D++;
-        totalPoints += 1;
-      }
-    }
-
-    bulkOps.push({
-      updateOne: {
-        filter: { _id: row._id },
-        update: {
-          $set: {
-            played: P,
-            win: W,
-            draw: D,
-            loss: L,
-            pointsFor: GF,
-            pointsAgainst: GA,
-            pointsDifference: GD,
-            points: totalPoints,
-            result: results,
+  const aggregated = await PlayerFixture.aggregate([
+    { $match: { eventId: { $lte: eventId } } },
+    {
+      $project: {
+        players: [
+          {
+            player: "$homePlayer",
+            pointsFor: "$homeScore",
+            pointsAgainst: "$awayScore",
+            result: "$homeResult",
+          },
+          {
+            player: "$awayPlayer",
+            pointsFor: "$awayScore",
+            pointsAgainst: "$homeScore",
+            result: "$awayResult",
+          },
+        ],
+      },
+    },
+    { $unwind: "$players" },
+    {
+      $group: {
+        _id: "$players.player",
+        played: { $sum: 1 },
+        win: {
+          $sum: { $cond: [{ $eq: ["$players.result.result", "W"] }, 1, 0] },
+        },
+        draw: {
+          $sum: { $cond: [{ $eq: ["$players.result.result", "D"] }, 1, 0] },
+        },
+        loss: {
+          $sum: { $cond: [{ $eq: ["$players.result.result", "L"] }, 1, 0] },
+        },
+        pointsFor: { $sum: "$players.pointsFor" },
+        pointsAgainst: { $sum: "$players.pointsAgainst" },
+        points: {
+          $sum: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$players.result.result", "W"] }, then: 3 },
+                { case: { $eq: ["$players.result.result", "D"] }, then: 1 },
+              ],
+              default: 0,
+            },
           },
         },
+        result: { $push: "$players.result" },
       },
-    });
-  }
+    },
+    {
+      $lookup: {
+        from: "players",
+        let: { playerId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$_id", "$$playerId"] },
+            },
+          },
+          {
+            $project: { fplId: 1, _id: 0 },
+          },
+        ],
+        as: "playerInfo",
+      },
+    },
+    {
+      $addFields: {
+        pointsDifference: { $subtract: ["$pointsFor", "$pointsAgainst"] },
+        fplId: { $arrayElemAt: ["$playerInfo.fplId", 0] },
+      },
+    },
+    {
+      $addFields: {
+        sortKey: {
+          $add: [
+            { $multiply: ["$points", 1000000000] },
+            { $multiply: ["$pointsDifference", 1000000] },
+            { $multiply: ["$pointsFor", 1000] },
+            { $subtract: [1000, "$fplId"] },
+          ],
+        },
+      },
+    },
+    {
+      $setWindowFields: {
+        sortBy: { sortKey: -1 },
+        output: {
+          rank: { $rank: {} },
+        },
+      },
+    },
+  ]);
+
+  const bulkOps = aggregated.map((row) => {
+    return {
+      updateOne: {
+        filter: { player: row._id },
+        update: {
+          $set: {
+            played: row.played,
+            win: row.win,
+            draw: row.draw,
+            loss: row.loss,
+            pointsFor: row.pointsFor,
+            pointsAgainst: row.pointsAgainst,
+            pointsDifference: row.pointsDifference,
+            points: row.points,
+            result: row.result,
+            rank: row.rank,
+          },
+        },
+        upsert: true,
+      },
+    };
+  });
 
   if (bulkOps.length > 0) {
     await PlayerTable.bulkWrite(bulkOps);
@@ -403,7 +439,7 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
   const PlayerEventPoints = await getModel(
     dbName,
     "PlayerEventPoints",
-    playerEventPointsSchema
+    playerEventPointsSchema,
   );
   const Event = await getModel(dbName, "Event", eventSchema);
   const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
@@ -426,7 +462,7 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
   for (const pt of allPoints) {
     pointsByPlayerEvent.set(
       `${pt.player}_${pt.eventId}`,
-      pt.eventPoints - pt.eventTransfersCost || 0
+      pt.eventPoints - pt.eventTransfersCost || 0,
     );
   }
 
@@ -475,27 +511,26 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
     );
   });
 
-
   const updates = teamScores.map((team, index) => ({
-      updateOne: {
-        filter: { teamId: team.teamId, eventId: team.eventId },
-        update: {
-          $set: {
-            rank: index + 1,
-            teamId: team.teamId,
-            teamName: team.name,
-            eventId: team.eventId,
-            totalPoints: team.totalPoints,
-            score: pointsTable[index] || 0,
-          },
+    updateOne: {
+      filter: { teamId: team.teamId, eventId: team.eventId },
+      update: {
+        $set: {
+          rank: index + 1,
+          teamId: team.teamId,
+          teamName: team.name,
+          eventId: team.eventId,
+          totalPoints: team.totalPoints,
+          score: pointsTable[index] || 0,
         },
-        upsert: true,
       },
-    }));
+      upsert: true,
+    },
+  }));
 
-   if (updates.length > 0) {
-      await FormulaOne.bulkWrite(updates);
-    }
+  if (updates.length > 0) {
+    await FormulaOne.bulkWrite(updates);
+  }
 
   await calculateTotalF1(dbName);
 });
@@ -505,7 +540,7 @@ const calculateTotalF1 = async (dbName) => {
   const FormulaOneTotal = await getModel(
     dbName,
     "FormulaOneTotal",
-    formulaOneTotalSchema
+    formulaOneTotalSchema,
   );
   const Team = await getModel(dbName, "Team", teamSchema);
 
@@ -518,6 +553,46 @@ const calculateTotalF1 = async (dbName) => {
         teamName: { $first: "$teamName" },
       },
     },
+    {
+      $lookup: {
+        from: "teams",
+        let: { teamId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$_id", "$$teamId"] },
+            },
+          },
+          {
+            $project: { id: 1, _id: 0 },
+          },
+        ],
+        as: "teamInfo",
+      },
+    },
+    {
+      $addFields: {
+        teamId: { $arrayElemAt: ["$teamInfo.id", 0] },
+      },
+    },
+    {
+      $addFields: {
+        sortKey: {
+          $add: [
+            { $multiply: ["$totalScore", 1000000000] },
+            { $subtract: [1000, "$teamId"] },
+          ],
+        },
+      },
+    },
+    {
+      $setWindowFields: {
+        sortBy: { sortKey: -1 },
+        output: {
+          rank: { $rank: {} },
+        },
+      },
+    },
   ]);
 
   const updates = totals.map((t) => ({
@@ -528,6 +603,7 @@ const calculateTotalF1 = async (dbName) => {
           teamId: t._id,
           teamName: t.teamName,
           totalScore: t.totalScore,
+          rank: t.rank,
         },
       },
       upsert: true,

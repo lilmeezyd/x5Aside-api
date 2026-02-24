@@ -98,13 +98,13 @@ export const getF1Standings = asyncHandler(async (req, res) => {
   const standings = await FormulaOneTotal.find({})
   .populate('teamId')
   .sort({ totalScore: -1 })
-  .select('teamId teamName totalScore');
+  .select('teamId teamName totalScore rank oldRank');
 
 standings.sort((a, b) => {
   if (a.totalScore === b.totalScore) {
     return a.teamId.id - b.teamId.id;
   }
-  return 0; // keep totalScore order
+  return 0;
 });
 
   res.status(200).json(standings);
