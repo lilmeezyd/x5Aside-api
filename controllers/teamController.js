@@ -10,6 +10,7 @@ import leaderboardSchema from "../models/leaderboardModel.js";
 import playerTableSchema from "../models/playerTableModel.js";
 import playerEventPointsSchema from "../models/playerPointsModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
+import pointsTotalSchema from "../models/pointsTotalModel.js";
 import { fetchAndStoreFPLTeams } from "../services/fetchTeams.js";
 import { getModel } from "../config/db.js";
 
@@ -222,36 +223,9 @@ const deleteTeam = asyncHandler(async (req, res) => {
 
 const getTeamTotalPoints = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
-  const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
-  const totals = await FormulaOne.aggregate([
-    {
-      $group: {
-        _id: { teamName: "$teamName", id: "$id" },
-        totalPoints: { $sum: "$totalPoints" },
-        teamId: { $first: "$_id" },
-      },
-    },
-    { $sort: { totalPoints: -1, teamName: 1 } },
-    {
-      $setWindowFields: {
-        sortBy: { totalPoints: -1 },
-        output: {
-          rank: { $rank: {} },
-        },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        teamName: "$_id.teamName",
-        id: "$_id.id",
-        teamId: 1,
-        totalPoints: 1,
-        rank: 1,
-      },
-    },
-  ]);
-  res.json(totals);
+  const PointsTotal = await getModel(dbName, "PointsTotal", pointsTotalSchema);
+  const totals = await PointsTotal.find({})
+  res.json(totals); 
 });
 
 export {

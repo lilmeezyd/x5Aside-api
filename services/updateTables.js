@@ -11,6 +11,7 @@ import teamH2HSchema from "../models/teamH2HModel.js";
 import playerTableSchema from "../models/playerTableModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
+import pointsTotalSchema from "../models/pointsTotalModel.js";
 
 const pointsTable = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 export const updateClassicTable = async (dbName, eventId) => {
@@ -125,7 +126,7 @@ export const updateClassicTable = async (dbName, eventId) => {
     const nextOpponent = (nextEventId < 38) ? getOpponent(row._id) : "None"
 
     const oldRank = existing?.oldRank ?? row.rank;
-    const rankChange = oldRank - row.rank;
+    const rankChange = oldRank - row.rank; 
 
     return {
       updateOne: {
@@ -532,8 +533,60 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
     await FormulaOne.bulkWrite(updates);
   }
 
-  await calculateTotalF1(dbName);
+  await Promise.all([calculateTotalF1(dbName),
+  calculateTotalPoints(dbName)])
 });
+
+const calculateTotalPoints = async (dbName) => {
+  const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
+  const PointsTotal = await getModel(dbName, "PointsTotal", pointsTotalSchema);
+  const totals = await FormulaOne.aggregate([
+    {
+      $group: {
+        _id: { teamName: "$teamName", id: "$id" },
+        totalPoints: { $sum: "$totalPoints" },
+        teamId: { $first: "$_id" },
+      },
+    },
+    { $sort: { totalPoints: -1, teamName: 1 } },
+    {
+      $setWindowFields: {
+        sortBy: { totalPoints: -1 },
+        output: {
+          rank: { $rank: {} },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        teamName: "$_id.teamName",
+        id: "$_id.id",
+        teamId: 1,
+        totalPoints: 1,
+        rank: 1,
+      },
+    },
+  ]);
+
+  const updates = totals.map((t) => ({
+    updateOne: {
+      filter: { teamId: t.teamId },
+      update: {
+        $set: {
+          teamId: t.teamId,
+          teamName: t.teamName,
+          totalPoints: t.totalPoints,
+          rank: t.rank,
+        }
+      },
+      upsert: true
+    }
+  }))
+  if(updates.length > 0) {
+    await PointsTotal.bulkWrite(updates)
+  }
+}
 
 const calculateTotalF1 = async (dbName) => {
   const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);

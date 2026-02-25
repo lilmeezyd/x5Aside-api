@@ -6,6 +6,7 @@ import teamClassicSchema from "../models/teamClassicModel.js";
 import teamH2HSchema from "../models/teamH2HModel.js";
 import playerTableSchema from "../models/playerTableModel.js";
 import formulaOneTotalSchema from "../models/formulaOneTotalModel.js";
+import pointsTotalSchema from "../models/pointsTotalModel.js";
 
 export const fetchEvents = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -52,6 +53,7 @@ export const setCurrentEvent = asyncHandler(async (req, res) => {
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
+  const PointsTotal = await getModel(dbName, "PointsTotal", pointsTotalSchema);
   const FormulaOneTotal = await getModel(
     dbName,
     "FormulaOneTotal",
@@ -99,6 +101,7 @@ export const setCurrentEvent = asyncHandler(async (req, res) => {
   await TeamClassic.updateMany({}, [{$set: { oldRank: "$rank"}}])
   await PlayerTable.updateMany({}, [{$set: { oldRank: "$rank"}}])
   await FormulaOneTotal.updateMany({}, [{$set: { oldRank: "$rank"}}])
+  await PointsTotal.updateMany({}, [{$set: { oldRank: "$rank"}}])
 
   res.status(200).json({
     message: `Event ${nextEvent.eventId} is now current.`,
