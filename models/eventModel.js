@@ -6,7 +6,7 @@ const eventSchema = new mongoose.Schema({
 current: { type: Boolean, default: false},
   next: { type: Boolean, default: false},
 finished: { type: Boolean, default: false},
-});
+}, { timestamps: true});
 /*const Event = mongoose.model("Event", eventSchema);*/
 
 export default eventSchema;
