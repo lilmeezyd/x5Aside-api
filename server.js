@@ -1,15 +1,15 @@
 // ----------- [Setup] -----------
+import dotenv from "dotenv/config"
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import { validateDbName } from "./middleware/validateDb.js"
 import { errorHandler } from "./middleware/errorMiddleware.js";
 import {connectDb} from "./config/db.js";
-import cookieParser from "cookie-parser";
+import cookieParser from "cookie-parser"; 
 
 
 
-dotenv.config();
+//dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 const allowedOrigins = [
   "https://x5-aside.vercel.app",
 "https://661a859e-215d-4ee7-ad03-221007b9ef75-00-yr7tnm5anqkz.picard.replit.dev",
-"http://localhost:5173"
+"http://localhost:5173", "http://localhost:5174"
 ]
 
 app.use(
