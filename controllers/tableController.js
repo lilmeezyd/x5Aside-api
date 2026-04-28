@@ -8,6 +8,7 @@ import fixtureSchema from "../models/fixtureModel.js";
 import playerSchema from "../models/playerModel.js";
 import eventSchema from "../models/eventModel.js";
 import { getModel } from "../config/db.js";
+import { getFilteredClassicTable, getFilteredH2HTable } from "../services/updateTables.js"
 
 const getClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
@@ -68,6 +69,21 @@ const getPlayerTable = asyncHandler(async (req, res) => {
   });
   res.json(sorted);
 });
+
+const getPartialClassicTable = asyncHandler(async (req, res) => {
+  
+  const table = await getFilteredClassicTable(req.query.dbName, Number(req.params.sid), Number(req.params.eid))
+  res.json(table)
+})
+
+const getPartialH2HTable = asyncHandler(async (req, res) => {
+  const table = await getFilteredH2HTable(req.query.dbName, Number(req.params.sid), Number(req.params.eid))
+  res.json(table)
+})
+
+const getPartialPlayerTable = asyncHandler(async (req, res) => {
+  res.json(req.query)
+})
 
 const updateClassicTable = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -486,4 +502,7 @@ export {
   updateClassicTable,
   updateH2HTable,
   updatePlayerTable,
+  getPartialClassicTable,
+  getPartialH2HTable,
+  getPartialPlayerTable
 };
