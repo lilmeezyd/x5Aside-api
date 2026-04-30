@@ -128,7 +128,7 @@ export const updateClassicTable = async (dbName, eventId) => {
   const bulkOps = aggregated.map((row) => {
     const teamObjectId = teamIdMap[row._id];
     const existing = existingMap[teamObjectId?.toString()];
-    const nextOpponent = nextEventId < 38 ? getOpponent(row._id) : "None";
+    const nextOpponent = nextEventId <= 38 ? getOpponent(row._id) : "None";
 
     const oldRank = existing?.oldRank ?? row.rank;
     const rankChange = oldRank - row.rank;
@@ -274,7 +274,7 @@ export const updateH2HTable = async (dbName, eventId) => {
   const bulkOps = aggregated.map((row) => {
     const teamObjectId = teamIdMap[row._id];
     const existing = existingMap[teamObjectId?.toString()];
-    const nextOpponent = nextEventId < 38 ? getOpponent(row._id) : "None";
+    const nextOpponent = nextEventId <= 38 ? getOpponent(row._id) : "None";
 
     const oldRank = existing?.oldRank ?? row.rank;
     const rankChange = oldRank - row.rank;
@@ -681,12 +681,13 @@ export const getFilteredClassicTable = async (
   dbName,
   startEventId,
   endEventId,
+  eventId
 ) => {
   
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
-  const nextEventId = endEventId + 1;
+  const nextEventId = eventId + 1;
 
   const teams = await Team.find({}).lean();
   const nextFixtures = await Fixture.find({ eventId: nextEventId }).lean();
@@ -796,7 +797,7 @@ export const getFilteredClassicTable = async (
   const bulkOps = aggregated.map((row) => {
     const teamObjectId = teamIdMap[row._id];
     const existing = existingMap[teamObjectId?.toString()];
-    const nextOpponent = nextEventId < 38 ? getOpponent(row._id) : "None";
+    const nextOpponent = nextEventId <= 38 ? getOpponent(row._id) : "None";
 
     const oldRank = existing?.oldRank ?? row.rank;
 
@@ -821,11 +822,11 @@ export const getFilteredClassicTable = async (
 
 export const getFilteredH2HTable = async (dbName,
   startEventId,
-  endEventId) => {
+  endEventId, eventId) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamH2H = await getModel(dbName, "TeamH2H", teamH2HSchema);
-  const nextEventId = endEventId + 1;
+  const nextEventId = eventId + 1;
 
   const teams = await Team.find({}).lean();
   const nextFixtures = await Fixture.find({ eventId: nextEventId }).lean();
@@ -935,7 +936,7 @@ export const getFilteredH2HTable = async (dbName,
   const bulkOps = aggregated.map((row) => {
     const teamObjectId = teamIdMap[row._id];
     const existing = existingMap[teamObjectId?.toString()];
-    const nextOpponent = nextEventId < 38 ? getOpponent(row._id) : "None";
+    const nextOpponent = nextEventId <= 38 ? getOpponent(row._id) : "None";
 
     const oldRank = existing?.oldRank ?? row.rank;
 
