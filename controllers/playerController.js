@@ -507,12 +507,14 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
       const result = {};
 
       for (const player of data) {
-        const { _id, goals } = player;
+        const { _id, goals, assists, yellows } = player;
 
         if (!result[_id]) {
-          result[_id] = { _id, goals };
+          result[_id] = { _id, goals, assists, yellows };
         } else {
           result[_id].goals += goals;
+          result[_id].assists += assists;
+          result[_id].yellows += yellows;
         }
       }
 
@@ -523,7 +525,11 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
     const leaderboardEntries = mergedPlayers.map((p) => ({
       player: p._id, // assuming `id` is already a valid ObjectId
       goals: p.goals,
+      assists: p.assists,
+      yellows: p.yellows
     }));
+
+    console.log(leaderboardEntries)
 
     await Leaderboard.deleteMany({});
 
