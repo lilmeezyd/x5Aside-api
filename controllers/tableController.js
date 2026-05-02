@@ -8,6 +8,7 @@ import fixtureSchema from "../models/fixtureModel.js";
 import playerSchema from "../models/playerModel.js";
 import eventSchema from "../models/eventModel.js";
 import { getModel } from "../config/db.js";
+import { getFilteredClassicTable, getFilteredH2HTable } from "../services/updateTables.js"
 
 const getClassicTable = asyncHandler(async (req, res) => {
   const eventId = parseInt(req.query.eventId);
@@ -54,11 +55,19 @@ const getPlayerTable = asyncHandler(async (req, res) => {
   const PlayerTable = await getModel(dbName, "PlayerTable", playerTableSchema);
   const Player = await getModel(dbName, "Player", playerSchema);
   const Event = await getModel(dbName, "Event", eventSchema);
+  const Team = await getModel(dbName, "Team", teamSchema)
   const table = await PlayerTable.find().populate("player").lean();
+  const teams = await Team.find({}).lean()
+
+  const teamIdMap = new Map(teams.map(x => [x._id.toString(), x]))
 
   const event = await Event.findOne({ current: true });
   const { eventId } = event || {};
-  const sorted = table.map(x => { return {...x, eventId}}).sort((a, b) => {
+  const sorted = table.map(x => {
+    return {
+      ...x, team: teamIdMap.get(x.player.team.toString())
+    }
+  }).map(x => { return {...x, eventId}}).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     const gdA = a.pointsFor - a.pointsAgainst;
     const gdB = b.pointsFor - b.pointsAgainst;
@@ -68,6 +77,27 @@ const getPlayerTable = asyncHandler(async (req, res) => {
   });
   res.json(sorted);
 });
+
+const getPartialClassicTable = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName || "";
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const event = await Event.findOne({current: true})
+  
+  const table = await getFilteredClassicTable(req.query.dbName, Number(req.params.sid), Number(req.params.eid), Number(event?.eventId))
+  res.json(table)
+})
+
+const getPartialH2HTable = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName || "";
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const event = await Event.findOne({current: true})
+  const table = await getFilteredH2HTable(req.query.dbName, Number(req.params.sid), Number(req.params.eid), Number(event?.eventId))
+  res.json(table)
+})
+
+const getPartialPlayerTable = asyncHandler(async (req, res) => {
+  res.json(req.query)
+})
 
 const updateClassicTable = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -486,4 +516,7 @@ export {
   updateClassicTable,
   updateH2HTable,
   updatePlayerTable,
+  getPartialClassicTable,
+  getPartialH2HTable,
+  getPartialPlayerTable
 };
