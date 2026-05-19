@@ -47,39 +47,42 @@ const getFixtures = asyncHandler(async (req, res) => {
       const map = new Map();
 
       // Add home multipliers
-      for (let { element, webName, multiplier } of home || []) {
-        const prev = map.get(element) || { webName, multiplier: 0 };
+      for (let { element, webName, multiplier, fixtures } of home || []) {
+        const prev = map.get(element) || { webName, multiplier: 0, fixtures: [] };
         map.set(element, {
           webName,
           multiplier: prev.multiplier + multiplier,
+          fixtures
         });
       }
 
       // Combine and subtract away multipliers
       const awayMap = new Map();
-      for (let { element, webName, multiplier } of away || []) {
-        const prev = awayMap.get(element) || { webName, multiplier: 0 };
+      for (let { element, webName, multiplier, fixtures } of away || []) {
+        const prev = awayMap.get(element) || { webName, multiplier: 0, fixtures: [] };
         awayMap.set(element, {
           webName,
           multiplier: prev.multiplier + multiplier,
+          fixtures
         });
       }
-      for (let [element, { webName, multiplier }] of awayMap.entries()) {
-        const prev = map.get(element) || { webName, multiplier: 0 };
+      for (let [element, { webName, multiplier, fixtures }] of awayMap.entries()) {
+        const prev = map.get(element) || { webName, multiplier: 0, fixtures: [] };
         map.set(element, {
           webName,
           multiplier: prev.multiplier - multiplier,
+          fixtures
         });
       }
 
       // Split into home/away
       const finalHome = [];
       const finalAway = [];
-      for (let [element, { webName, multiplier }] of map.entries()) {
+      for (let [element, { webName, multiplier, fixtures }] of map.entries()) {
         if (multiplier > 0) {
-          finalHome.push({ element, webName, multiplier });
+          finalHome.push({ element, webName, multiplier, fixtures });
         } else if (multiplier < 0) {
-          finalAway.push({ element, webName, multiplier: -multiplier });
+          finalAway.push({ element, webName, multiplier: -multiplier, fixtures });
         }
       }
 
@@ -202,7 +205,7 @@ const scoreFixtureById = async (req, res) => {
   });
 
   res.json({ message: "Fixture scored successfully." });
-};
+}; 
 
 const deleteAllFixtures = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName || "";

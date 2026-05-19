@@ -334,6 +334,38 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   const { data: bootstrap } = await axios.get(
     "https://fantasy.premierleague.com/api/bootstrap-static",
   );
+
+  // Fixtures
+  const { data: fixtures} = await axios.get(
+    `https://fantasy.premierleague.com/api/fixtures/?event=${eventId}`,
+  );
+
+  // live scores
+  const {data: liveElements} = await axios.get(
+    `https://fantasy.premierleague.com/api/event/${eventId}/live/`,
+  );
+
+  const liveFixtures = new Map(
+    fixtures.map((x) => [
+      x.id,
+      { event: x.event, id: x.id, started: x.started, finished: x.finished },
+    ]),
+  );
+  const liveMaps = new Map(
+    liveElements.elements.map((x) => [
+      x.id,
+      {
+        total_points: x.stats.total_points,
+        fixture: x.explain.map((y) => {
+          return {
+            ...liveFixtures.get(y.fixture),
+            minutes: y.stats.find((z) => z.identifier === "minutes")?.value,
+          };
+        }),
+      },
+    ]),
+  );
+
   const elementMap = Object.fromEntries(
     bootstrap.elements.map((e) => [e.id, e]),
   );
@@ -375,6 +407,17 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
             }
 
             const picks = picksRes.data?.picks || [];
+            // Total Points from live
+            const totalPoints = picks
+              .map((x) => {
+                return {
+                  ...x,
+                  total_points: liveMaps.get(x.element).total_points,
+                };
+              })
+              .filter((x) => x.multiplier > 0)
+              .map((x) => x.total_points * x.multiplier)
+              .reduce((x, y) => x + y, 0);
             const benchPoints =
               picksRes.data?.entry_history?.points_on_bench || 0;
 
@@ -384,6 +427,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
               .map((p) => ({
                 webName: elementMap[p.element]?.web_name || "Unknown",
                 element: p.element,
+                fixtures: liveMaps.get(p.element),
                 multiplier: p.multiplier,
               }));
 
@@ -434,7 +478,8 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
                     $set: {
                       player: playerId,
                       eventId: e.event,
-                      eventPoints: e.points,
+                      //eventPoints: e.points,
+                      eventPoints: totalPoints,
                       eventTransfersCost: e.event_transfers_cost,
                       overallRank: e.overall_rank,
                       totalPoints: e.total_points,
@@ -445,7 +490,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
               })),
             );
 
-            console.log(`Queued sync for @${player.xHandle}`);
+            //console.log(`Queued sync for @${player.xHandle}`);
           } catch (err) {
             console.error(`Error syncing @${player.xHandle}:`, err.message);
           }
@@ -525,10 +570,10 @@ const updateLeadingScorers = asyncHandler(async (req, res) => {
       player: p._id, // assuming `id` is already a valid ObjectId
       goals: p.goals,
       assists: p.assists,
-      yellows: p.yellows
+      yellows: p.yellows,
     }));
 
-    console.log(leaderboardEntries)
+    console.log(leaderboardEntries);
 
     await Leaderboard.deleteMany({});
 
