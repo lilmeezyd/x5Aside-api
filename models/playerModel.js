@@ -8,14 +8,16 @@ const oneDecimal = v => {
 const playerSchema = new mongoose.Schema(
   {
     xHandle: String,
-    fplId: { type: Number, unique: true }, 
+    fplId: { type: Number, unique: true },
     position: { 
       type: String, 
-      enum: ["Captain", "Ace", "Forward", "Midfielder", "Defender"] 
+      enum: ["", "Captain", "Ace", "Forward", "Midfielder", "Defender"],
+      default: ""
     },
     teamName: String,
     manager: String,
     team: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
+    communityName: { type: String, default: "" },
     startGW: { type: Number, default: 1},
     endGW: { type: Number, default: 38},
     isActive: { type: Boolean, default: true},

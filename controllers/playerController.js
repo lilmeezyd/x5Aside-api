@@ -17,7 +17,7 @@ import { getModel } from "../config/db.js";
 const createPlayer = asyncHandler(async (req, res) => {
   const { xHandle, fplId, position, team, startPrice } = req.body;
   const dbName = req.query.dbName || req.body?.dbName;
-
+  
   const Player = await getModel(dbName, "Player", playerSchema);
   const PlayerEventPoints = await getModel(
     dbName,
@@ -162,6 +162,7 @@ const createPlayer = asyncHandler(async (req, res) => {
 
 const getPlayers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
+  const teamId = req.query.team
   const Player = await getModel(dbName, "Player", playerSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const Event = await getModel(dbName, "Event", eventSchema);
@@ -173,8 +174,14 @@ const getPlayers = asyncHandler(async (req, res) => {
 
   const event = await Event.findOne({ current: true });
   const { eventId } = event || {};
+  let players
 
-  const players = await Player.find({}).populate("team");
+  if(teamId === "all") {
+    players = await Player.find({isActive: true}).populate("team");
+  } else {
+    players = await Player.find({team: req.query.team, isActive: true}).populate("team");
+  }
+
 
   let playerPointsMap = new Map();
 
@@ -209,6 +216,18 @@ const getPlayers = asyncHandler(async (req, res) => {
 
   res.json(response);
 });
+
+const getPlayersByTeam = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const PlayerPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema,
+  );
+})
 
 const deleteAllPlayers = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -336,12 +355,12 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
   );
 
   // Fixtures
-  const { data: fixtures} = await axios.get(
+  const { data: fixtures } = await axios.get(
     `https://fantasy.premierleague.com/api/fixtures/?event=${eventId}`,
   );
 
   // live scores
-  const {data: liveElements} = await axios.get(
+  const { data: liveElements } = await axios.get(
     `https://fantasy.premierleague.com/api/event/${eventId}/live/`,
   );
 
@@ -415,15 +434,35 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
                   total_points: liveMaps.get(x.element).total_points,
                 };
               })
-              .filter((x) => x.multiplier > 0)
-              .map((x) => x.total_points * x.multiplier)
+              .filter((x) =>
+                dbName === "ffkPro" ? x.position < 12 : x.multiplier > 0,
+              ).map((x) => {
+                if (dbName === "ffkPro" && x.multiplier === 3) {
+                  return x.total_points * 2;
+                }
+                return x.total_points * x.multiplier;
+              })
               .reduce((x, y) => x + y, 0);
-            const benchPoints =
-              picksRes.data?.entry_history?.points_on_bench || 0;
+            /*const benchPoints =
+              picksRes.data?.entry_history?.points_on_bench || 0;*/
+
+              // Bench Points 
+              const benchPoints = picks
+              .map((x) => {
+                return {
+                  ...x,
+                  total_points: liveMaps.get(x.element).total_points,
+                };
+              })
+              .filter((x) => x.position >= 12
+              ).map((x) => x.total_points * 1)
+              .reduce((x, y) => x + y, 0);
 
             // mapped picks (fast O(1) lookup with elementMap)
             const mappedPicks = picks
-              .filter((p) => p.multiplier > 0)
+              .filter((p) =>
+                dbName === "ffkPro" ? p.position < 12 : p.multiplier > 0,
+              )
               .map((p) => ({
                 webName: elementMap[p.element]?.web_name || "Unknown",
                 element: p.element,
@@ -621,4 +660,5 @@ export {
   getLeadingScorers,
   fetchAndStorePlayerEventPoints,
   getPlayerEventPoints,
+  getPlayersByTeam
 };

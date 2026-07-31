@@ -33,5 +33,13 @@ const getModel = async (dbName, modelName, schema) => {
   return conn.models[modelName];
 };
 
-export { connectDb, getModel }
+const getModelFromConn = (conn, modelName, schema) => {
+  if (!conn.models[modelName]) {
+    conn.model(modelName, schema);
+  }
+  return conn.models[modelName];
+};
+
+
+export { connectDb, getModel, getModelFromConn }
 

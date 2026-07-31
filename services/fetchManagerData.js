@@ -7,10 +7,10 @@ export const fetchData = async (fplId) => {
 
     const manager = `${data.player_first_name} ${data.player_last_name}`;
     const teamName = data.name;
-    console.log(`Fetched data for FPL ID ${fplId}: ${manager} - ${teamName}`);
+   // console.log(`Fetched data for FPL ID ${fplId}: ${manager} - ${teamName}`);
     
 
-    return { teamName, manager };
+    return { teamName, manager, fplId };
   } catch (error) {
     console.error(`❌ Error fetching data for FPL ID ${fplId}:`, error.message);
     throw error;

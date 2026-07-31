@@ -5,23 +5,34 @@ import { getModel } from "../config/db.js";
 const User = await getModel("Authentication", "User", userSchema);
 
 const protect = asyncHandler(async (req, res, next) => {
-    let token;
-    token = req.cookies.jwt;
-    
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            req.user = await User.findById(decoded.userId).select("-password");
-        
-            next();
-        } catch (error) {
-            res.status(401);
-            throw new Error(`Not authorized, invalid token`);
-        }
-    } else {
-        res.status(401);
-        throw new Error(`Not authorized`);
+  let token;
+  token = req.cookies.jwt;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.userId).select("-password");
+
+      next();
+    } catch (error) {
+      res.status(401);
+      throw new Error(`Not authorized, invalid token`);
     }
+  } else {
+    res.status(401);
+    throw new Error(`Not authorized`);
+  }
 });
 
-export { protect };
+const roles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req?.user.role) return res.status(401).json({ msg: "Not Authorized" });
+    const rolesArray = [...allowedRoles];
+    const result = rolesArray.includes(req.user.role);
+    // const result = Object.values(req.user.roles).map(role => rolesArray.includes(role)).find(val => val === true)
+    if (!result) return res.status(401).json({ msg: "Not Authorized" });
+    next();
+  };
+};
+
+export { protect, roles };
