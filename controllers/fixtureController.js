@@ -8,7 +8,7 @@ import playerSchema from "../models/playerModel.js";
 import tieBreakerSchema from "../models/tieBreakerModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import scoreFixtures from "../services/scoreFixtures.js";
-import { fetchFixtures } from "../services/fetchFixtures.js";
+import { fetchFixtures, generateFixtures } from "../services/fetchFixtures.js";
 import {
   updateClassicTable,
   updatePlayerTable,
@@ -25,6 +25,31 @@ const createFixtures = asyncHandler(async (req, res) => {
   res.json({ message: `${fixtures.length} fixtures added` });
 });
 
+const createProFixtures = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName || "";
+  const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
+  const Team = await getModel(dbName, "Team", teamSchema);
+  await Fixture.deleteMany();
+  const teams = await Team.find({}).lean();
+  if (teams.length < 2) {
+    return res.status(400).json({
+      message: "At least two teams are required.",
+    });
+  }
+
+  const newTeams = teams.map((team) => team._id);
+
+  const fixtures = generateFixtures(newTeams);
+
+  await Fixture.insertMany(fixtures);
+
+  res.status(201).json({
+    message: "Fixtures created successfully.",
+    gameweeks: Math.max(...fixtures.map((f) => f.eventId)),
+    fixtures: fixtures.length,
+  });
+});
+
 const getFixtures = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
@@ -33,94 +58,221 @@ const getFixtures = asyncHandler(async (req, res) => {
   const fixtures = await Fixture.find({}).lean();
   const teams = await Team.find({}).lean();
 
-  // Build lookup maps
-  const teamMap = {};
-  const teamShortMap = {};
-  for (const team of teams) {
-    teamMap[team.id] = team.name;
-    teamShortMap[team.id] = team.short_name;
-  }
+  let enrichedFixtures;
 
-  const enrichedFixtures = fixtures.map((fixture) => {
-    // Inline splitHomeAway logic
-    function splitHomeAway(home, away) {
-      const map = new Map();
+  if (dbName === "ffkPro") {
+    const teamMap = {};
+    const teamShortMap = {};
+    const teamUrls = {};
+    for (const team of teams) {
+      teamMap[team._id] = team.name;
+      teamShortMap[team._id] = team.short_name;
+      teamUrls[team._id] = team.url;
 
-      // Add home multipliers
-      for (let { element, webName, multiplier, fixtures } of home || []) {
-        const prev = map.get(element) || { webName, multiplier: 0, fixtures: [] };
-        map.set(element, {
-          webName,
-          multiplier: prev.multiplier + multiplier,
-          fixtures
-        });
-      }
-
-      // Combine and subtract away multipliers
-      const awayMap = new Map();
-      for (let { element, webName, multiplier, fixtures } of away || []) {
-        const prev = awayMap.get(element) || { webName, multiplier: 0, fixtures: [] };
-        awayMap.set(element, {
-          webName,
-          multiplier: prev.multiplier + multiplier,
-          fixtures
-        });
-      }
-      for (let [element, { webName, multiplier, fixtures }] of awayMap.entries()) {
-        const prev = map.get(element) || { webName, multiplier: 0, fixtures: [] };
-        map.set(element, {
-          webName,
-          multiplier: prev.multiplier - multiplier,
-          fixtures
-        });
-      }
-
-      // Split into home/away
-      const finalHome = [];
-      const finalAway = [];
-      for (let [element, { webName, multiplier, fixtures }] of map.entries()) {
-        if (multiplier > 0) {
-          finalHome.push({ element, webName, multiplier, fixtures });
-        } else if (multiplier < 0) {
-          finalAway.push({ element, webName, multiplier: -multiplier, fixtures });
-        }
-      }
-
-      // Sort
-      finalHome.sort((a, b) => a.element - b.element);
-      finalAway.sort((a, b) => a.element - b.element);
-
-      return { home: finalHome, away: finalAway };
     }
 
-    // Apply split logic to all fixture fields
-    const haTeams = splitHomeAway(fixture.homePicks, fixture.awayPicks);
-    const haCap = splitHomeAway(fixture.homeCap, fixture.awayCap);
-    const haAce = splitHomeAway(fixture.homeAce, fixture.awayAce);
-    const haMid = splitHomeAway(fixture.homeMid, fixture.awayMid);
-    const haDef = splitHomeAway(fixture.homeDef, fixture.awayDef);
-    const haFwd = splitHomeAway(fixture.homeFwd, fixture.awayFwd);
+    enrichedFixtures = fixtures.map((fixture) => {
+      // Inline splitHomeAway logic
+      function splitHomeAway(home, away) {
+        const map = new Map();
 
-    return {
-      ...fixture,
-      homeTeamShort: teamShortMap[fixture.homeTeam],
-      awayTeamShort: teamShortMap[fixture.awayTeam],
-      homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
-      awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
-      homePicks: haTeams.home,
-      awayPicks: haTeams.away,
-      homeCap: haCap.home,
-      awayCap: haCap.away,
-      homeAce: haAce.home,
-      awayAce: haAce.away,
-      homeMid: haMid.home,
-      awayMid: haMid.away,
-      homeDef: haDef.home,
-      awayDef: haDef.away,
-      homeFwd: haFwd.home,
-      awayFwd: haFwd.away,
-    };
-  });
+        // Add home multipliers
+        for (let { element, webName, multiplier, fixtures } of home || []) {
+          const prev = map.get(element) || {
+            webName,
+            multiplier: 0,
+            fixtures: [],
+          };
+          map.set(element, {
+            webName,
+            multiplier: prev.multiplier + multiplier,
+            fixtures,
+          });
+        }
+
+        // Combine and subtract away multipliers
+        const awayMap = new Map();
+        for (let { element, webName, multiplier, fixtures } of away || []) {
+          const prev = awayMap.get(element) || {
+            webName,
+            multiplier: 0,
+            fixtures: [],
+          };
+          awayMap.set(element, {
+            webName,
+            multiplier: prev.multiplier + multiplier,
+            fixtures,
+          });
+        }
+        for (let [
+          element,
+          { webName, multiplier, fixtures },
+        ] of awayMap.entries()) {
+          const prev = map.get(element) || {
+            webName,
+            multiplier: 0,
+            fixtures: [],
+          };
+          map.set(element, {
+            webName,
+            multiplier: prev.multiplier - multiplier,
+            fixtures,
+          });
+        }
+
+        // Split into home/away
+        const finalHome = [];
+        const finalAway = [];
+        for (let [
+          element,
+          { webName, multiplier, fixtures },
+        ] of map.entries()) {
+          if (multiplier > 0) {
+            finalHome.push({ element, webName, multiplier, fixtures });
+          } else if (multiplier < 0) {
+            finalAway.push({
+              element,
+              webName,
+              multiplier: -multiplier,
+              fixtures,
+            });
+          }
+        }
+
+        // Sort
+        finalHome.sort((a, b) => a.element - b.element);
+        finalAway.sort((a, b) => a.element - b.element);
+
+        return { home: finalHome, away: finalAway };
+      }
+
+      // Apply split logic to all fixture fields
+      const haTeams = splitHomeAway(fixture.homePicks, fixture.awayPicks);
+
+      return {
+        ...fixture,
+        homeTeamShort: teamShortMap[fixture.homeTeamPro],
+        awayTeamShort: teamShortMap[fixture.awayTeamPro],
+        homeTeam: teamMap[fixture.homeTeamPro] || fixture.homeTeamPro,
+        awayTeam: teamMap[fixture.awayTeamPro] || fixture.awayTeamPro,
+        homePicks: haTeams.home,
+        awayPicks: haTeams.away,
+        homeTeamUrl: teamUrls[fixture.homeTeamPro],
+        awayTeamUrl: teamUrls[fixture.awayTeamPro],
+      };
+    });
+  } else {
+    const teamMap = {};
+    const teamShortMap = {};
+    for (const team of teams) {
+      teamMap[team.id] = team.name;
+      teamShortMap[team.id] = team.short_name;
+    }
+
+    enrichedFixtures = fixtures.map((fixture) => {
+      // Inline splitHomeAway logic
+      function splitHomeAway(home, away) {
+        const map = new Map();
+
+        // Add home multipliers
+        for (let { element, webName, multiplier, fixtures } of home || []) {
+          const prev = map.get(element) || {
+            webName,
+            multiplier: 0,
+            fixtures: [],
+          };
+          map.set(element, {
+            webName,
+            multiplier: prev.multiplier + multiplier,
+            fixtures,
+          });
+        }
+
+        // Combine and subtract away multipliers
+        const awayMap = new Map();
+        for (let { element, webName, multiplier, fixtures } of away || []) {
+          const prev = awayMap.get(element) || {
+            webName,
+            multiplier: 0,
+            fixtures: [],
+          };
+          awayMap.set(element, {
+            webName,
+            multiplier: prev.multiplier + multiplier,
+            fixtures,
+          });
+        }
+        for (let [
+          element,
+          { webName, multiplier, fixtures },
+        ] of awayMap.entries()) {
+          const prev = map.get(element) || {
+            webName,
+            multiplier: 0,
+            fixtures: [],
+          };
+          map.set(element, {
+            webName,
+            multiplier: prev.multiplier - multiplier,
+            fixtures,
+          });
+        }
+
+        // Split into home/away
+        const finalHome = [];
+        const finalAway = [];
+        for (let [
+          element,
+          { webName, multiplier, fixtures },
+        ] of map.entries()) {
+          if (multiplier > 0) {
+            finalHome.push({ element, webName, multiplier, fixtures });
+          } else if (multiplier < 0) {
+            finalAway.push({
+              element,
+              webName,
+              multiplier: -multiplier,
+              fixtures,
+            });
+          }
+        }
+
+        // Sort
+        finalHome.sort((a, b) => a.element - b.element);
+        finalAway.sort((a, b) => a.element - b.element);
+
+        return { home: finalHome, away: finalAway };
+      }
+
+      // Apply split logic to all fixture fields
+      const haTeams = splitHomeAway(fixture.homePicks, fixture.awayPicks);
+      const haCap = splitHomeAway(fixture.homeCap, fixture.awayCap);
+      const haAce = splitHomeAway(fixture.homeAce, fixture.awayAce);
+      const haMid = splitHomeAway(fixture.homeMid, fixture.awayMid);
+      const haDef = splitHomeAway(fixture.homeDef, fixture.awayDef);
+      const haFwd = splitHomeAway(fixture.homeFwd, fixture.awayFwd);
+
+      return {
+        ...fixture,
+        homeTeamShort: teamShortMap[fixture.homeTeam],
+        awayTeamShort: teamShortMap[fixture.awayTeam],
+        homeTeam: teamMap[fixture.homeTeam] || fixture.homeTeam,
+        awayTeam: teamMap[fixture.awayTeam] || fixture.awayTeam,
+        homePicks: haTeams.home,
+        awayPicks: haTeams.away,
+        homeCap: haCap.home,
+        awayCap: haCap.away,
+        homeAce: haAce.home,
+        awayAce: haAce.away,
+        homeMid: haMid.home,
+        awayMid: haMid.away,
+        homeDef: haDef.home,
+        awayDef: haDef.away,
+        homeFwd: haFwd.home,
+        awayFwd: haFwd.away,
+      };
+    });
+  }
 
   res.json(enrichedFixtures);
 });
@@ -205,7 +357,7 @@ const scoreFixtureById = async (req, res) => {
   });
 
   res.json({ message: "Fixture scored successfully." });
-}; 
+};
 
 const deleteAllFixtures = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName || "";
@@ -389,8 +541,8 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
         )
         .slice(0, extras)
         .map((p) => p._id.toString());
-      
-       const assistIds = stats
+
+      const assistIds = stats
         .sort(
           (a, b) =>
             b.points - a.points ||
@@ -398,8 +550,8 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
             (b.benchPoints || 0) - (a.benchPoints || 0) ||
             Number(a.fplId) - Number(b.fplId),
         )
-        .slice(extras, extras+extras)
-        .map((p) => p._id.toString()); 
+        .slice(extras, extras + extras)
+        .map((p) => p._id.toString());
 
       for (let i = 0; i < stats.length; i++) {
         if (topIds.includes(stats[i]._id.toString())) {
@@ -425,24 +577,22 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
         .slice(0, 1)
         .map((p) => p._id.toString());
 
-        for (let i = 0; i < stats.length; i++) {
+      for (let i = 0; i < stats.length; i++) {
         if (topIds.includes(stats[i]._id.toString())) {
           stats[i].yellows += 1;
         }
       }
-    }
-
+    };
 
     if (homeTotal > awayTotal) {
       homeScoreClassic = assignGoals(homeStats, homeTotal - awayTotal);
-      assignYellows(awayStats)
+      assignYellows(awayStats);
     } else if (awayTotal > homeTotal) {
       awayScoreClassic = assignGoals(awayStats, awayTotal - homeTotal);
-      assignYellows(homeStats)
+      assignYellows(homeStats);
     } else {
-      assignYellows([...awayStats, ...homeStats])
+      assignYellows([...awayStats, ...homeStats]);
     }
-
 
     // Prepare result
     const homeResult = {
@@ -960,4 +1110,5 @@ export {
   getPlayerFixtures,
   getCurrentFixtures,
   getNextFixtures,
+  createProFixtures,
 };

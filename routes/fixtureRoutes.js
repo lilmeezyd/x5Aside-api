@@ -3,17 +3,19 @@ const router = express.Router();
 import { createFixtures, getFixtures, getFixtureById, scoreFixtureById, deleteAllFixtures, calculateClassicScores, calculateH2HScores, createPlayerFixtures,
         getPlayerFixtures,
        calculatePlayerFixScores,
-       getCurrentFixtures, getNextFixtures } from '../controllers/fixtureController.js';
+       getCurrentFixtures, getNextFixtures, createProFixtures } from '../controllers/fixtureController.js';
 import { cronAuth } from '../middleware/cronMiddleware.js'
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, roles } from '../middleware/authMiddleware.js';
+import ROLES from "../config/permissions.js";
 
 router.get('/', getFixtures);
-router.post('/', protect, createFixtures);
-router.delete('/', protect, deleteAllFixtures);
-router.patch("/calculate-classic-scores", protect, calculateClassicScores);
-router.patch("/calculate-h2h-scores", protect, calculateH2HScores);
-router.post("/create-player-fixtures", protect, createPlayerFixtures);
-router.patch("/calculate-player-fixture-scores", protect, calculatePlayerFixScores);
+router.post('/', protect, roles(ROLES.ADMIN), createFixtures);
+router.delete('/', protect, roles(ROLES.ADMIN), deleteAllFixtures);
+router.post('/create-pro-fixtures', protect, roles(ROLES.ADMIN), createProFixtures);
+router.patch("/calculate-classic-scores", protect, roles(ROLES.ADMIN), calculateClassicScores);
+router.patch("/calculate-h2h-scores", protect, roles(ROLES.ADMIN), calculateH2HScores);
+router.post("/create-player-fixtures", protect, roles(ROLES.ADMIN), createPlayerFixtures);
+router.patch("/calculate-player-fixture-scores", protect, roles(ROLES.ADMIN), calculatePlayerFixScores);
 router.get("/player-fixtures", getPlayerFixtures);
 router.get('/current', getCurrentFixtures);
 router.get('/next', getNextFixtures);

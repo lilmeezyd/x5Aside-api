@@ -2,8 +2,10 @@ import mongoose from 'mongoose';
 
 const fixtureSchema = new mongoose.Schema({
   eventId: Number,
-  homeTeam: { type: mongoose.Schema.Types.Number, ref: "Team" },
-  awayTeam: { type: mongoose.Schema.Types.Number, ref: "Team" },
+  homeTeam: { type: mongoose.Schema.Types.Number, ref: "Team", default: null },
+  awayTeam: { type: mongoose.Schema.Types.Number, ref: "Team", default: null },
+  homeTeamPro: { type: mongoose.Schema.Types.ObjectId, ref: "Team", default: null },
+  awayTeamPro: { type: mongoose.Schema.Types.ObjectId, ref: "Team", default: null },
   homeScoreClassic: { type: Number,
                      default: null},
    homeCap : [],
