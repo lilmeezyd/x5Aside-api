@@ -298,7 +298,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   const { fplId, position, startPrice, currentPrice } = req.body;
-  if(dbName !== "ffkPro" || dbName !== "app5Aside" || dbName !== "X5Aside") {
+  if(dbName !== "ffkPro" && dbName !== "app5Aside" && dbName !== "X5Aside") {
     res.status(400);
     throw new Error("Invalid database name");
   }
