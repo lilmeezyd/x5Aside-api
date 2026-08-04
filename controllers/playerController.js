@@ -298,7 +298,7 @@ const updatePlayer = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Player = await getModel(dbName, "Player", playerSchema);
   const { fplId, position, startPrice, currentPrice } = req.body;
-  if (!fplId || !position || !startPrice || !currentPrice) {
+  if (!fplId || !position || startPrice < 0 || currentPrice < 0) {
     res.status(400);
     throw new Error("Invalid data");
   }
