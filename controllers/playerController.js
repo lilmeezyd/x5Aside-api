@@ -427,7 +427,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
 
             const picks = picksRes.data?.picks || [];
             // Total Points from live
-            const totalPoints = picks
+            const totalPointsNoChips = picks
               .map((x) => {
                 return {
                   ...x,
@@ -442,6 +442,18 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
                 }
                 return x.total_points * x.multiplier;
               })
+              .reduce((x, y) => x + y, 0);
+
+              const totalPoints = picks
+              .map((x) => {
+                return {
+                  ...x,
+                  total_points: liveMaps.get(x.element).total_points,
+                };
+              })
+              .filter((x) => x.multiplier > 0,
+              ).map((x) =>  x.total_points * x.multiplier
+              )
               .reduce((x, y) => x + y, 0);
             /*const benchPoints =
               picksRes.data?.entry_history?.points_on_bench || 0;*/
@@ -519,6 +531,7 @@ const fetchAndStorePlayerEventPoints = asyncHandler(async (req, res) => {
                       eventId: e.event,
                       //eventPoints: e.points,
                       eventPoints: totalPoints,
+                      eventPointNoChips: totalPointsNoChips,
                       eventTransfersCost: e.event_transfers_cost,
                       overallRank: e.overall_rank,
                       totalPoints: e.total_points,
