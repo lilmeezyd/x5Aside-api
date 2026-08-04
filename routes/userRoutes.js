@@ -9,13 +9,14 @@ import {
   getProfile,
   registerTeamManager,
   getRegisteredTeamManagers,
-  deleteTeamManager
+  deleteTeamManager, editProfile
 } from "../controllers/userController.js";
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/logout", logout);
+router.post("/logout", protect, logout);
 router.get("/profile", protect, getProfile);
+router.patch("/edit-profile", protect, editProfile);
 router.post("/registerTeamManager", protect, roles(ROLES.ADMIN), registerTeamManager)
 router.get("/getRegisteredTeamManagers", protect, roles(ROLES.ADMIN), getRegisteredTeamManagers)
 router.delete("/teamManagers/:id", protect, roles(ROLES.ADMIN), deleteTeamManager)
