@@ -9,7 +9,7 @@ const register = asyncHandler(async (req, res) => {
   const User = await getModel("Authentication", "User", userSchema);
 
   const existingUser = await User.findOne({ username });
-  if(password.length < 6) {
+  if (password.length < 6) {
     res.status(400);
     throw new Error("Password must be at least 6 characters long");
   }
@@ -29,8 +29,8 @@ const registerTeamManager = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
   const User = await getModel("Authentication", "User", userSchema);
 
-  if(!username || !password) {
-    throw Error("Some Fields are missing!")
+  if (!username || !password) {
+    throw Error("Some Fields are missing!");
   }
 
   const existingUser = await User.findOne({ username });
@@ -49,9 +49,9 @@ const registerTeamManager = asyncHandler(async (req, res) => {
 
 const getRegisteredTeamManagers = asyncHandler(async (req, res) => {
   const User = await getModel("Authentication", "User", userSchema);
-  const users = await User.find({role: 'community'}).select("-password")
-  res.json(users)
-})
+  const users = await User.find({ role: "community" }).select("-password");
+  res.json(users);
+});
 
 const deleteTeamManager = asyncHandler(async (req, res) => {
   const User = await getModel("Authentication", "User", userSchema);
@@ -65,11 +65,11 @@ const deleteTeamManager = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Community not found");
   }
-})
+});
 
 const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
-  const newUsername = username.trim()
+  const newUsername = username.trim();
 
   const User = await getModel("Authentication", "User", userSchema);
   const user = await User.findOne({ username: newUsername });
@@ -81,7 +81,7 @@ const login = asyncHandler(async (req, res) => {
       _id: user._id,
       username: user.username,
       role: user.role,
-      hasPicks: user.hasPicks
+      hasPicks: user.hasPicks,
     });
   } else {
     res.status(401).json({ message: "Invalid credentials" });
@@ -92,28 +92,28 @@ const editProfile = asyncHandler(async (req, res) => {
   const { username, oldPassword, newPassword, newPassword1 } = req.body;
   const User = await getModel("Authentication", "User", userSchema);
   const user = await User.findById(req.user._id);
-  if(username !== user?.username) {
-    res.status(400)
-    throw new Error('Username does not match the current username')
+  if (username !== user?.username) {
+    res.status(400);
+    throw new Error("Username does not match the current username");
   }
 
-  if(newPassword.length < 6) {
-    res.status(400)
+  if (newPassword.length < 6) {
+    res.status(400);
     throw new Error("New Password must be at least 6 characters long");
   }
 
-  if(newPassword.trim() !== newPassword1.trim()) {
-    res.status(400)
-    throw new Error('New passwords do not match')
+  if (newPassword.trim() !== newPassword1.trim()) {
+    res.status(400);
+    throw new Error("New passwords do not match");
   }
 
   if (/\s/.test(newPassword.trim())) {
-  res.status(400)
-  throw new Error("Password cannot contain spaces.");
-}
+    res.status(400);
+    throw new Error("Password cannot contain spaces.");
+  }
 
   if (user && !(await bcrypt.compare(oldPassword.trim(), user.password))) {
-    res.status(400)
+    res.status(400);
     throw new Error("Password provided does not match the current password");
   }
 
@@ -122,8 +122,49 @@ const editProfile = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json({ message: "Password updated successfully" });
+});
 
-})
+const updateUsername = asyncHandler(async (req, res) => {
+  const { newUsername } = req.body;
+  const User = await getModel("Authentication", "User", userSchema);
+  const user = await User.findById(req.user._id);
+  const existingUser = await User.findOne({ username: newUsername.trim() });
+
+  if (existingUser) {
+    res.status(400);
+    throw new Error("Username already exists");
+  }
+
+  if(!newUsername || newUsername.trim() === "") {
+    res.status(400);
+    throw new Error("New username cannot be empty");
+  }
+
+  if(/\s/.test(newUsername.trim())) {
+    res.status(400);
+    throw new Error("Username cannot contain spaces.");
+  }
+
+  if(newUsername.trim().length < 5) {
+    res.status(400);
+    throw new Error("New username must be at least 5 characters long");
+  }
+
+  if(req.user.username === newUsername.trim()) {
+    res.status(400);
+    throw new Error("New username cannot be the same as the current username");
+  }
+
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  user.username = newUsername;
+  await user.save();
+
+  res.status(200).json({ username: user.username, message: "Username updated successfully" });
+});
 
 //@desc Logout user
 //@route POST /api/users/logout
@@ -160,4 +201,14 @@ const generateToken = (res, userId) => {
   });
 };
 
-export { editProfile, register, login, logout, getProfile, registerTeamManager, getRegisteredTeamManagers, deleteTeamManager };
+export {
+  editProfile,
+  register,
+  login,
+  logout,
+  getProfile,
+  registerTeamManager,
+  getRegisteredTeamManagers,
+  deleteTeamManager,
+  updateUsername,
+};
