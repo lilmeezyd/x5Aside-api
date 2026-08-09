@@ -7,6 +7,8 @@ import teamH2HSchema from "../models/teamH2HModel.js";
 import playerTableSchema from "../models/playerTableModel.js";
 import formulaOneTotalSchema from "../models/formulaOneTotalModel.js";
 import pointsTotalSchema from "../models/pointsTotalModel.js";
+import proPicksSchema from "../models/proPicksModel.js";
+import proLivePicksSchema from "../models/proLivePicksModel.js";
 
 export const fetchEvents = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -65,11 +67,9 @@ export const setCurrentEvent = asyncHandler(async (req, res) => {
 
   // Stop if the current event is event 38
   if (currentEvent && currentEvent.eventId === 38) {
-    return res
-      .status(400)
-      .json({
-        message: "Event 38 is the final event. No further updates allowed.",
-      });
+    return res.status(400).json({
+      message: "Event 38 is the final event. No further updates allowed.",
+    });
   }
 
   // Step 2: End the current event if exists
@@ -97,11 +97,69 @@ export const setCurrentEvent = asyncHandler(async (req, res) => {
     await Event.updateOne({ eventId: nextEventId }, { $set: { next: true } });
   }
 
-  await TeamH2H.updateMany({}, [{$set: { oldRank: "$rank"}}])
-  await TeamClassic.updateMany({}, [{$set: { oldRank: "$rank"}}])
-  await PlayerTable.updateMany({}, [{$set: { oldRank: "$rank"}}])
-  await FormulaOneTotal.updateMany({}, [{$set: { oldRank: "$rank"}}])
-  await PointsTotal.updateMany({}, [{$set: { oldRank: "$rank"}}])
+  await TeamH2H.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
+  await TeamClassic.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
+  await PlayerTable.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
+  await FormulaOneTotal.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
+  await PointsTotal.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
+
+  res.status(200).json({
+    message: `Event ${nextEvent.eventId} is now current.`,
+    currentEventId: nextEvent.eventId,
+  });
+});
+
+export const setCurrentProEvent = asyncHandler(async (req, res) => {
+  const dbName = req.query.dbName || req.body?.dbName;
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
+  const PointsTotal = await getModel(dbName, "PointsTotal", pointsTotalSchema);
+  const ProPicks = await getModel(dbName, "ProPicks", proPicksSchema);
+  const ProLivePicks = await getModel(
+    dbName,
+    "ProLivePicks",
+    proLivePicksSchema,
+  );
+
+  // Step 1: Get the current event (if any)
+  const currentEvent = await Event.findOne({ current: true });
+
+  // Stop if the current event is event 38
+  if (currentEvent && currentEvent.eventId === 38) {
+    return res.status(400).json({
+      message: "Event 38 is the final event. No further updates allowed.",
+    });
+  }
+
+  // Step 2: End the current event if exists
+  if (currentEvent) {
+    await Event.updateOne(
+      { eventId: currentEvent.eventId },
+      { $set: { current: false, finished: true } },
+    );
+  }
+
+  // Step 3: Promote the next event
+  const nextEvent = await Event.findOneAndUpdate(
+    { next: true },
+    { $set: { current: true, next: false } },
+    { new: true },
+  );
+
+  if (!nextEvent) {
+    return res.status(404).json({ message: "No event with next: true found." });
+  }
+
+  // Step 4: Prepare the following event as next, unless current is event 38
+  const nextEventId = nextEvent.eventId + 1;
+  if (nextEventId <= 38) {
+    await Event.updateOne({ eventId: nextEventId }, { $set: { next: true } });
+  }
+
+  await ProPicks.aggregate([{ $set: { points: 0 } }, { $out: "prolivepicks" }]);
+  await ProPicks.updateMany({}, [{ $set: { eventId: nextEventId } }]);
+  await TeamClassic.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
+  await PointsTotal.updateMany({}, [{ $set: { oldRank: "$rank" } }]);
 
   res.status(200).json({
     message: `Event ${nextEvent.eventId} is now current.`,
@@ -112,6 +170,7 @@ export const setCurrentEvent = asyncHandler(async (req, res) => {
 export const resetEvents = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Event = await getModel(dbName, "Event", eventSchema);
+  const ProPicks = await getModel(dbName, "ProPicks", proPicksSchema);
 
   // Step 1: Reset all events
   await Event.updateMany(
@@ -124,6 +183,10 @@ export const resetEvents = asyncHandler(async (req, res) => {
       },
     },
   );
+
+  if (dbName === "ffkPro") {
+    await ProPicks.updateMany({}, [{ $set: { eventId: 1 } }]);
+  }
 
   // Step 2: Set eventId 1 as the next event
   const updated = await Event.updateOne(
@@ -146,8 +209,8 @@ export const getCurrentEvent = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Event = await getModel(dbName, "Event", eventSchema);
 
-  const event = await Event.findOne({current: true});
+  const event = await Event.findOne({ current: true });
   const { eventId } = event;
 
   res.status(200).json(eventId);
-})
+});

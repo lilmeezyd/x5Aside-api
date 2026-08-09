@@ -34,7 +34,7 @@ export const generateFixtures = (teams) => {
 
   // Add a BYE team if odd number of teams
   if (list.length % 2 !== 0) {
-    list.push({ _id: null, name: "BYE" });
+    list.push({ id: null, name: "BYE" });
   }
 
   const totalTeams = list.length;
@@ -49,11 +49,11 @@ export const generateFixtures = (teams) => {
       const home = list[i];
       const away = list[totalTeams - 1 - i];
 
-      if (home._id !== null && away._id !== null) {
+      if (home.id !== null && away.id !== null) {
         gameweek.push({
           eventId: round + 1,
-          homeTeamPro: home,
-          awayTeamPro: away,
+          homeTeam: home,
+          awayTeam: away,
         });
       }
     }
@@ -74,8 +74,8 @@ export const generateFixtures = (teams) => {
   firstLeg.forEach(match => {
     fixtures.push({
       eventId: match.eventId + rounds,
-      homeTeamPro: match.awayTeamPro,
-      awayTeamPro: match.homeTeamPro,
+      homeTeam: match.awayTeam,
+      awayTeam: match.homeTeam,
     });
   });
 

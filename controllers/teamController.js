@@ -462,10 +462,11 @@ const editPicks = asyncHandler(async (req, res) => {
   }
   const currentTime = new Date();
   const { deadline } = event;
-  /*if (currentTime.toISOString() >= deadline) {
+  /* Will Fix it later */
+  if (currentTime.toISOString() >= deadline) {
     res.status(400);
     throw new Error("Deadline has passed! Cannot edit picks!");
-  }*/
+  }
   proPicks.picks = picks;
   const updatedProPicks = await proPicks.save();
   /*const updatedProPicks = await ProPicks.findByIdAndUpdate(
