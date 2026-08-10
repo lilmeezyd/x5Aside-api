@@ -12,9 +12,10 @@ import playerTableSchema from "../models/playerTableModel.js";
 import playerFixtureSchema from "../models/playerFixtureModel.js";
 import fixtureSchema from "../models/fixtureModel.js";
 import pointsTotalSchema from "../models/pointsTotalModel.js";
+import proLivePicksSchema from "../models/proLivePicksModel.js";
 
 const pointsTable = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
-/*export const updateClassicTable = async (dbName, eventId) => {
+export const updateClassicTable = async (dbName, eventId) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
@@ -159,9 +160,9 @@ const pointsTable = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
   if (bulkOps.length > 0) {
     await TeamClassic.bulkWrite(bulkOps);
   }
-};*/
+};
 
-export const updateClassicTable = async (dbName, eventId) => {
+export const updateProTable = async (dbName, eventId) => {
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Team = await getModel(dbName, "Team", teamSchema);
   const TeamClassic = await getModel(dbName, "TeamClassic", teamClassicSchema);
@@ -694,6 +695,128 @@ export const calculateF1perGW = asyncHandler(async (dbName, eventId) => {
   await Promise.all([calculateTotalF1(dbName), calculateTotalPoints(dbName)]);
 });
 
+export const calculateProPerGW = asyncHandler(async (dbName, eventId) => {
+  const Team = await getModel(dbName, "Team", teamSchema);
+  const Player = await getModel(dbName, "Player", playerSchema);
+  const PlayerEventPoints = await getModel(
+    dbName,
+    "PlayerEventPoints",
+    playerEventPointsSchema,
+  );
+  const Event = await getModel(dbName, "Event", eventSchema);
+  const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
+  const ProLivePicks = await getModel(dbName, "ProLivePicks", proLivePicksSchema);
+  //await FormulaOne.deleteMany({});
+  const [teams, events, allPlayers, allPoints, proLivePicks ] = await Promise.all([
+    Team.find({}),
+    Event.find({ eventId: { $lte: eventId } }).sort({ eventId: 1 }),
+    Player.find({ startGW: { $lte: eventId } }),
+    PlayerEventPoints.find({ eventId }),
+    ProLivePicks.find({ eventId })
+  ]);
+
+  const playersByTeam = new Map();
+  for (const player of allPlayers) {
+    const tid = player.team.toString();
+    if (!playersByTeam.has(tid)) playersByTeam.set(tid, []);
+    playersByTeam.get(tid).push(player);
+  }
+
+  const pointsByPlayerEvent = new Map();
+  for (const pt of allPoints) {
+    pointsByPlayerEvent.set(
+      `${pt.player}_${pt.eventId}`,
+      pt.eventPoints - pt.eventTransfersCost || 0,
+    );
+  }
+
+  const userPicks = {}
+  for (const pick of proLivePicks) {
+    userPicks[pick.user] = pick.picks;
+  }
+
+  const teamsMap = {}
+  for (const team of teams) {
+    teamsMap[team.user] = team._id
+  }
+
+  const teamsName = {}
+  for (const team of teams) {
+    teamsMap[team._id] = team.name
+  }
+
+
+
+  const teamScores = [];
+
+  for(const pick of proLivePicks) {
+    const teamId = teamsMap[pick.user]
+    const picks = userPicks[pick.user]
+    // Get each player’s score for this event
+    const playerScores = picks.filter(x => x.multiplier > 0).map((p) => ({
+      playerId: p.player,
+      score: pointsByPlayerEvent.get(`${p.player}_${eventId}`) || 0,
+    }));
+    // Sort by score descending
+    playerScores.sort((a, b) => b.score - a.score);
+
+    // Extract top 5 scores (or fill with 0 if less than 5 players)
+    const rankedScores = playerScores.map((p) => p.score);
+    while (rankedScores.length < 5) rankedScores.push(0); // pad with zeros
+
+    const totalPoints = picks.reduce((sum, p) => {
+      return sum + (p.multiplier * pointsByPlayerEvent.get(`${p.player}_${eventId}`) || 0);
+    }, 0);
+
+    teamScores.push({
+      teamId,
+      name: teamsName[teamId],
+      eventId,
+      totalPoints,
+      first: rankedScores[0],
+      second: rankedScores[1],
+      third: rankedScores[2],
+      fourth: rankedScores[3],
+      fifth: rankedScores[4],
+    });
+  }
+
+
+ teamScores.sort((a, b) => {
+    return (
+      b.totalPoints - a.totalPoints ||
+      b.first - a.first ||
+      b.second - a.second ||
+      b.third - a.third ||
+      b.fourth - a.fourth ||
+      b.fifth - a.fifth
+    );
+  });
+
+  const updates = teamScores.map((team, index) => ({
+    updateOne: {
+      filter: { teamId: team.teamId, eventId: team.eventId },
+      update: {
+        $set: {
+          rank: index + 1,
+          teamId: team.teamId,
+          teamName: team.name,
+          eventId: team.eventId,
+          totalPoints: team.totalPoints,
+          score: pointsTable[index] || 0,
+        },
+      },
+      upsert: true,
+    },
+  }));
+
+  if (updates.length > 0) {
+    await FormulaOne.bulkWrite(updates);
+  }
+
+  await Promise.all([calculateTotalF1(dbName), calculateTotalPoints(dbName)]);
+});
+
 const calculateTotalPoints = async (dbName) => {
   const FormulaOne = await getModel(dbName, "FormulaOne", formulaOneSchema);
   const PointsTotal = await getModel(dbName, "PointsTotal", pointsTotalSchema);
@@ -840,7 +963,7 @@ export const getFilteredClassicTable = async (
   const teams = await Team.find({}).lean();
   const nextFixtures = await Fixture.find({ eventId: nextEventId }).lean();
 
-  const teamNameMap = new Map(teams.map((x) => [x.id, x.short_name]));
+  const teamNameMap = dbName === "ffkPro" ? new Map(teams.map((x) => [x.id, x.url])) : new Map(teams.map((x) => [x.id, x.short_name]));
 
   const teamIdMap = {};
   for (const team of teams) {

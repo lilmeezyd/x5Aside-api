@@ -12,9 +12,11 @@ import scoreFixtures from "../services/scoreFixtures.js";
 import { fetchFixtures, generateFixtures } from "../services/fetchFixtures.js";
 import {
   updateClassicTable,
+  updateProTable,
   updatePlayerTable,
   updateH2HTable,
   calculateF1perGW,
+  calculateProPerGW
 } from "../services/updateTables.js";
 import { getModel } from "../config/db.js";
 
@@ -392,7 +394,7 @@ const deleteAllFixtures = asyncHandler(async (req, res) => {
   await PlayerFixture.deleteMany({});
   res.json({ message: "All fixtures deleted successfully" });
 });
-/*
+
 const calculateClassicScores = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
@@ -681,9 +683,9 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   ]);
 
   res.json({ message: "Classic scores calculated successfully" });
-});*/
+});
 
-const calculateClassicScores = asyncHandler(async (req, res) => {
+const calculateClassicProScores = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
   const Fixture = await getModel(dbName, "Fixture", fixtureSchema);
   const Event = await getModel(dbName, "Event", eventSchema);
@@ -698,7 +700,6 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   const Picks = await getModel(dbName, "Picks", picksSchema);
   const ProLivePicks = await getModel(dbName, "ProLivePicks", proLivePicksSchema);
   const event = await Event.findOne({ current: true });
-  const proLivePicks = await ProLivePicks.find({})
   if (!event) {
     return res
       .status(404)
@@ -708,6 +709,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   //const eventId = 5 // Fix me later
   const fixtures = await Fixture.find({ eventId });
   const breaker = await TieBreaker.find({ eventId }).lean();
+  const proLivePicks = await ProLivePicks.find({ eventId })
   const breakerMap = {};
   for (const b of breaker) {
     breakerMap[b.player] = {
@@ -730,7 +732,6 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   for (const pick of proLivePicks) {
     userPicks[pick.user] = pick.picks;
   }
-  //console.log(userPicks)
 
 
   // Cache all players and group them by teamId
@@ -767,6 +768,8 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
 
     const homeProPicks = {}
     const awayProPicks = {}
+    const homeProPos = {}
+    const awayProPos = {}
     for (const p of userPicks[teamUserMap[fixture.homeTeam]]) {
     homeProPicks[p.player] = p.multiplier;
   }
@@ -774,7 +777,15 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
   for (const p of userPicks[teamUserMap[fixture.awayTeam]]) {
     awayProPicks[p.player] = p.multiplier;
   }
-  console.log(homeProPicks['6a6a84822bbfee6f43a08b58'])
+
+  for (const p of userPicks[teamUserMap[fixture.homeTeam]]) {
+    homeProPos[p.player] = p.position;
+  }
+
+  for (const p of userPicks[teamUserMap[fixture.awayTeam]]) {
+    awayProPos[p.player] = p.position;
+  }
+
 
     let homeTotal = 0;
     let awayTotal = 0;
@@ -800,6 +811,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
         ...tieBreak,
         points: net,
         multiplier: homeProPicks[p._id],
+        position: homeProPos[p._id],
         pointsXmul: netWithMultiplier,
         goals: 0,
         assists: 0,
@@ -824,6 +836,7 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
         ...tieBreak,
         points: net,
         multiplier: awayProPicks[p._id],
+        position: awayProPos[p._id],
         pointsXmul: netWithMultiplier,
         goals: 0,
         assists: 0,
@@ -958,10 +971,11 @@ const calculateClassicScores = asyncHandler(async (req, res) => {
 
   // Fix me once you're done
   await Promise.all([
-    updateClassicTable(dbName, eventId),
+    updateProTable(dbName, eventId),
+    calculateProPerGW(dbName, eventId)
   ]);
 
-  res.json({ message: "Classic scores calculated successfully" });
+  res.json({ message: "FFK Pro  scores calculated successfully" });
 });
 const calculateH2HScores = asyncHandler(async (req, res) => {
   const dbName = req.query.dbName || req.body?.dbName;
@@ -1406,6 +1420,7 @@ export {
   scoreFixtureById,
   deleteAllFixtures,
   calculateClassicScores,
+  calculateClassicProScores,
   calculateH2HScores,
   createPlayerFixtures,
   calculatePlayerFixScores,
