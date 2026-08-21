@@ -802,7 +802,7 @@ const calculateClassicProScores = asyncHandler(async (req, res) => {
       const tieBreak = breakerMap[p._id];
       const selectedPicks = picksMap[p._id];
       if (!points || !tieBreak) continue;
-      const net = points.eventPoints - points.eventTransfersCost;
+      const net = points.eventPointNoChips - points.eventTransfersCost;
       const netWithMultiplier = net * homeProPicks[p._id]
       homeTotal += netWithMultiplier;
       homePicks.push(...selectedPicks);
@@ -826,7 +826,7 @@ const calculateClassicProScores = asyncHandler(async (req, res) => {
       const tieBreak = breakerMap[p._id];
       const selectedPicks = picksMap[p._id];
       if (!points || !tieBreak) continue;
-      const net = points.eventPoints - points.eventTransfersCost;
+      const net = points.eventPointNoChips - points.eventTransfersCost;
       const netWithMultiplier = net * awayProPicks[p._id]
       awayTotal += netWithMultiplier;
 
@@ -911,13 +911,13 @@ const calculateClassicProScores = asyncHandler(async (req, res) => {
     };
 
     if (homeTotal > awayTotal) {
-      homeScoreClassic = assignGoals(homeStats, homeTotal - awayTotal);
+      homeScoreClassic = assignGoals(homeStats.filter(x => x.position < 6), homeTotal - awayTotal);
       assignYellows(awayStats);
     } else if (awayTotal > homeTotal) {
-      awayScoreClassic = assignGoals(awayStats, awayTotal - homeTotal);
-      assignYellows(homeStats);
+      awayScoreClassic = assignGoals(awayStats.filter(x => x.position < 6), awayTotal - homeTotal);
+      assignYellows(homeStats.filter(x => x.position < 6));
     } else {
-      assignYellows([...awayStats, ...homeStats]);
+      assignYellows([...awayStats.filter(x => x.position < 6), ...homeStats.filter(x => x.position < 6)]);
     }
 
     // Prepare result
