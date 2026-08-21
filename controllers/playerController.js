@@ -307,12 +307,12 @@ const updatePlayer = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Invalid data");
   }
-  /*const playerExists = await Player.findOne({ fplId });
+  const playerExists = await Player.findOne({ fplId });
   if (playerExists) {
     res.status(400);
     console.log("Fpl Id already taken")
     throw new Error("Fpl Id already exists");
-  }*/
+  }
 
   const data = await fetchData(fplId);
   const { teamName, manager } = data;
