@@ -462,8 +462,14 @@ const editPicks = asyncHandler(async (req, res) => {
   }
   const currentTime = new Date();
   const { deadline } = event;
+  const deadlineWithGrace = new Date(
+  new Date(deadline).getTime() + 30 * 60 * 1000
+);
+console.log(deadlineWithGrace)
+console.log(deadline)
+console.log(currentTime)
   /* Will Fix it later */
-  if (currentTime.toISOString() >= deadline) {
+  if (currentTime >= deadlineWithGrace) {
     res.status(400);
     throw new Error("Deadline has passed! Cannot edit picks!");
   }
