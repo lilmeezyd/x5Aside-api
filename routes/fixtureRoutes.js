@@ -72,6 +72,13 @@ router.patch(
   cronAuth,
   calculateClassicScores,
 );
+
+router.patch(
+  "/calculate-classic-pro-scores-cron",
+  cronAuth,
+  calculateClassicProScores,
+);
+
 router.patch("/calculate-h2h-scores-cron", cronAuth, calculateH2HScores);
 router.patch(
   "/calculate-player-fixture-scores-cron",
