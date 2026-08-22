@@ -4,6 +4,7 @@ const playerEventPointsSchema = new mongoose.Schema({
   player: { type: mongoose.Schema.Types.ObjectId, ref: "Player" },
   eventId: Number,
   eventPoints: Number,
+  eventPointNoChips: Number,
   eventTransfersCost: Number,
   totalPoints: Number,
   overallRank: Number
